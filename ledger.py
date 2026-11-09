@@ -82,6 +82,127 @@ def set_cells(path, sheet, updates):
     shutil.move(tmp, path)
 
 
+# ---------------------------------------------------------------------------
+# OneDrive 직접 수정 (Microsoft Graph, Excel REST API)
+#   셀 단위로 PATCH 하므로 서식/회색/그림이 그대로이고, 수식은 Excel이 재계산하며,
+#   폰/PC에서 동시에 열어둬도 파일 전체를 덮어쓰지 않는다.
+# ---------------------------------------------------------------------------
+import base64
+import json
+import os
+import time
+import urllib.error
+import urllib.parse
+
+SHARE_URL = "https://1drv.ms/x/c/c3ff9e4fac7f997f/IQB_mX-sT57_IIDDcQAAAAAAAS_yTM5yFv3Y1XCLE-joULs?e=VhSK0c"
+HERE = os.path.dirname(os.path.abspath(__file__))
+STATE_DIR = os.path.expanduser("~/.config/ledger")
+TOKEN_PATH = os.path.join(STATE_DIR, "token.json")
+AUTH = "https://login.microsoftonline.com/consumers/oauth2/v2.0"
+SCOPE = "Files.ReadWrite.All offline_access"
+GRAPH = "https://graph.microsoft.com/v1.0"
+
+
+def client_id():
+    cid = os.environ.get("LEDGER_CLIENT_ID")
+    cfg = os.path.join(HERE, "ledger_config.json")
+    if not cid and os.path.exists(cfg):
+        cid = json.load(open(cfg)).get("client_id")
+    if not cid:
+        raise SystemExit("client_id 없음: ledger_config.json 에 {\"client_id\": \"...\"} 를 넣으세요")
+    return cid
+
+
+def _post_form(url, data):
+    req = urllib.request.Request(url, urllib.parse.urlencode(data).encode())
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        return json.load(e)
+
+
+def _save_token(tok):
+    os.makedirs(STATE_DIR, exist_ok=True)
+    tok["expires_at"] = time.time() + int(tok.get("expires_in", 3600)) - 120
+    fd = os.open(TOKEN_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(tok, f)
+
+
+def login():
+    """디바이스 코드 로그인: 코드를 출력하고, 사용자가 로그인할 때까지 기다린다."""
+    dc = _post_form(f"{AUTH}/devicecode", {"client_id": client_id(), "scope": SCOPE})
+    if "device_code" not in dc:
+        raise SystemExit(f"devicecode 실패: {dc}")
+    print(f"LOGIN {dc['verification_uri']} CODE {dc['user_code']}", flush=True)
+    deadline = time.time() + int(dc.get("expires_in", 900))
+    while time.time() < deadline:
+        time.sleep(int(dc.get("interval", 5)))
+        tok = _post_form(f"{AUTH}/token", {
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "client_id": client_id(), "device_code": dc["device_code"]})
+        if "access_token" in tok:
+            _save_token(tok)
+            print("LOGIN OK", flush=True)
+            return
+        if tok.get("error") not in ("authorization_pending", "slow_down"):
+            raise SystemExit(f"로그인 실패: {tok.get('error')}: {tok.get('error_description')}")
+    raise SystemExit("로그인 시간 초과")
+
+
+def access_token():
+    if not os.path.exists(TOKEN_PATH):
+        raise SystemExit("로그인 필요: python3 ledger.py login")
+    tok = json.load(open(TOKEN_PATH))
+    if time.time() < tok.get("expires_at", 0):
+        return tok["access_token"]
+    new = _post_form(f"{AUTH}/token", {
+        "grant_type": "refresh_token", "client_id": client_id(),
+        "refresh_token": tok["refresh_token"], "scope": SCOPE})
+    if "access_token" not in new:
+        raise SystemExit(f"토큰 갱신 실패(다시 login 필요): {new.get('error')}")
+    new.setdefault("refresh_token", tok["refresh_token"])
+    _save_token(new)
+    return new["access_token"]
+
+
+def graph(method, path, body=None):
+    url = path if path.startswith("http") else GRAPH + path
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data, method=method, headers={
+        "Authorization": "Bearer " + access_token(), "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req) as r:
+            raw = r.read()
+            return json.loads(raw) if raw else None
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"Graph {method} {path} -> {e.code}: {e.read().decode()[:500]}")
+
+
+def item_path():
+    enc = "u!" + base64.urlsafe_b64encode(SHARE_URL.encode()).decode().rstrip("=")
+    it = graph("GET", f"/shares/{enc}/driveItem?$select=id,name,parentReference")
+    return f"/drives/{it['parentReference']['driveId']}/items/{it['id']}"
+
+
+def _ws(sheet):
+    return "/workbook/worksheets('%s')" % urllib.parse.quote(sheet.replace("'", "''"))
+
+
+def remote_get(sheet, address):
+    r = graph("GET", item_path() + _ws(sheet) + f"/range(address='{address}')?$select=address,values")
+    return r["values"]
+
+
+def remote_set(sheet, updates):
+    """updates: {"U14": 5000, "V14": "사유"} — OneDrive 원본 셀에 직접 기록."""
+    base = item_path() + _ws(sheet)
+    for ref, value in updates.items():
+        graph("PATCH", base + f"/range(address='{ref}')", {"values": [[value]]})
+    return {ref: remote_get(sheet, ref)[0][0] for ref in updates}
+
+
 def show(path, sheet):
     import openpyxl
     ws = openpyxl.load_workbook(path)[sheet]
@@ -104,5 +225,16 @@ if __name__ == "__main__":
             k, v = a.split("=", 1)
             ups[k] = int(v) if re.fullmatch(r"-?\d+", v) else v
         set_cells(args[0], args[1], ups)
+    elif cmd == "login":
+        login()
+    elif cmd == "rget":  # rget sheet A1:B2
+        for row in remote_get(args[0], args[1]):
+            print(row)
+    elif cmd == "rset":  # rset sheet REF=VALUE ...  (OneDrive 원본 직접 수정)
+        ups = {}
+        for a in args[1:]:
+            k, v = a.split("=", 1)
+            ups[k] = int(v) if re.fullmatch(r"-?\d+", v) else v
+        print(remote_set(args[0], ups))
     else:
         print(__doc__)

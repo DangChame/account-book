@@ -5,6 +5,13 @@
 - 셀 수정: `python3 ledger.py set <path> 26-11 U14=5000 V14=사유` — 기존 셀 서식 유지, XML 직접 수정 (openpyxl 저장은 '현 재정상태' 시트의 잉크 그림을 날리므로 쓰지 말 것)
 - xlsx 파일은 저장소에 커밋하지 않는다 (개인 금융정보).
 
+## OneDrive 자동 반영 (기본 방식)
+- 원본에 직접 기록: `python3 ledger.py rset 26-11 U14=5000 V14=사유` (Graph Excel API, 셀 단위 PATCH → 서식 유지, 수식 자동 재계산)
+- 확인: `python3 ledger.py rget 26-11 Q14:AL14`
+- 쓰기 전에 `rget`으로 대상 칸이 비어 있는지 먼저 확인한다(다른 기기에서 바뀌었을 수 있음).
+- 토큰: `~/.config/ledger/token.json` (저장소 밖). 없거나 만료되면 `python3 ledger.py login`을 백그라운드로 실행하고, 출력된 코드를 사용자에게 알려 로그인하게 한다.
+- 앱 ID: `ledger_config.json`의 `client_id` (비밀값 아님).
+
 ## 기록 규칙
 - 시트명 `YY-MM` (예: 26-11). 날짜 행 = 일 + 2 (1일 → 3행).
 - 사용자가 말하는 지출은 **기본적으로 엄마카드(오른쪽, Q~AL열)**. 사용자가 "내 돈"이라고 언급할 때만 **내 돈(왼쪽, B~O열)**.
