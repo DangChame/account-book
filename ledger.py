@@ -99,7 +99,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 STATE_DIR = os.path.expanduser("~/.config/ledger")
 TOKEN_PATH = os.path.join(STATE_DIR, "token.json")
 AUTH = "https://login.microsoftonline.com/consumers/oauth2/v2.0"
-SCOPE = "Files.ReadWrite.All offline_access"
+SCOPE = "Files.ReadWrite offline_access"
+DEFAULT_CLIENT_ID = "d50ca740-c83f-4d1b-b616-12c519384f0c"
+REDIRECT = "https://login.microsoftonline.com/common/oauth2/nativeclient"
 GRAPH = "https://graph.microsoft.com/v1.0"
 
 
@@ -108,9 +110,9 @@ def client_id():
     cfg = os.path.join(HERE, "ledger_config.json")
     if not cid and os.path.exists(cfg):
         cid = json.load(open(cfg)).get("client_id")
-    if not cid:
-        raise SystemExit("client_id 없음: ledger_config.json 에 {\"client_id\": \"...\"} 를 넣으세요")
-    return cid
+    # 기본값: 오픈소스 'OneDrive Client for Linux'(abraunegg/onedrive)의 공개 앱 ID.
+    # 개인 계정은 Entra에서 앱 등록이 막혀 있어, 사용자 동의하에 이 공개 클라이언트로 로그인한다.
+    return cid or DEFAULT_CLIENT_ID
 
 
 def _post_form(url, data):
@@ -149,6 +151,25 @@ def login():
         if tok.get("error") not in ("authorization_pending", "slow_down"):
             raise SystemExit(f"로그인 실패: {tok.get('error')}: {tok.get('error_description')}")
     raise SystemExit("로그인 시간 초과")
+
+
+def login_url():
+    """브라우저 로그인 주소. 로그인 후 빈 화면의 주소창 URL(code= 포함)을 login-code 로 넘긴다."""
+    return f"{AUTH}/authorize?" + urllib.parse.urlencode({
+        "client_id": client_id(), "scope": SCOPE, "response_type": "code",
+        "redirect_uri": REDIRECT, "prompt": "select_account"})
+
+
+def login_code(redirected):
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(redirected.strip()).query)
+    code = q.get("code", [redirected.strip()])[0]
+    tok = _post_form(f"{AUTH}/token", {
+        "grant_type": "authorization_code", "client_id": client_id(), "code": code,
+        "redirect_uri": REDIRECT, "scope": SCOPE})
+    if "access_token" not in tok:
+        raise SystemExit(f"로그인 실패: {tok.get('error')}: {tok.get('error_description')}")
+    _save_token(tok)
+    print("LOGIN OK")
 
 
 def access_token():
@@ -225,8 +246,12 @@ if __name__ == "__main__":
             k, v = a.split("=", 1)
             ups[k] = int(v) if re.fullmatch(r"-?\d+", v) else v
         set_cells(args[0], args[1], ups)
-    elif cmd == "login":
+    elif cmd == "login":  # 직접 등록한 앱(공용 클라이언트) 전용 디바이스 코드 로그인
         login()
+    elif cmd == "login-url":
+        print(login_url())
+    elif cmd == "login-code":  # login-code '<리디렉션된 URL>'
+        login_code(args[0])
     elif cmd == "rget":  # rget sheet A1:B2
         for row in remote_get(args[0], args[1]):
             print(row)

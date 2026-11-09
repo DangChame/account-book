@@ -9,8 +9,10 @@
 - 원본에 직접 기록: `python3 ledger.py rset 26-11 U14=5000 V14=사유` (Graph Excel API, 셀 단위 PATCH → 서식 유지, 수식 자동 재계산)
 - 확인: `python3 ledger.py rget 26-11 Q14:AL14`
 - 쓰기 전에 `rget`으로 대상 칸이 비어 있는지 먼저 확인한다(다른 기기에서 바뀌었을 수 있음).
-- 토큰: `~/.config/ledger/token.json` (저장소 밖). 없거나 만료되면 `python3 ledger.py login`을 백그라운드로 실행하고, 출력된 코드를 사용자에게 알려 로그인하게 한다.
-- 앱 ID: `ledger_config.json`의 `client_id` (비밀값 아님).
+- 토큰: `~/.config/ledger/token.json` (저장소 밖). 없거나 갱신 실패 시 재로그인:
+  1. `python3 ledger.py login-url` 로 주소를 사용자에게 준다.
+  2. 사용자가 로그인 후 빈 화면 주소창 URL(`...nativeclient?code=...`)을 보내면 `python3 ledger.py login-code '<URL>'`.
+- 앱 ID: 기본은 오픈소스 'OneDrive Client for Linux'의 공개 ID (개인 계정은 앱 등록 불가, 사용자가 이 방식에 동의함). `LEDGER_CLIENT_ID` 또는 `ledger_config.json`으로 바꿀 수 있다.
 
 ## 기록 규칙
 - 시트명 `YY-MM` (예: 26-11). 날짜 행 = 일 + 2 (1일 → 3행).
