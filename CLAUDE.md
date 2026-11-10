@@ -19,7 +19,7 @@
 - `charge`(저축 계좌에서 충전)는 지출 아님. 가승인/취소 쌍은 제외.
 - 세션 없음/만료(`NO SESSION`/`SESSION EXPIRED`) → 백그라운드로 `node naver.js login` 실행 후 사용자에게 네이버 앱 '일회용 로그인 번호'를 받아 `~/.config/ledger/naver_code`에 기록.
 
-- **머니카드는 머니 차감액만 기록** (네이버 포인트로 낸 부분은 내 돈이 아니므로 제외). 처리한 PAYSEQ는 `~/.config/ledger/naver_done.json`.
+- **머니카드는 머니 차감액만 기록** (네이버 포인트로 낸 부분은 내 돈이 아니므로 제외). **포인트 적립·해외수수료 환급도 기록하지 않는다** (포인트는 들어오는 것도 쓰는 것도 가계부에서 무시). 처리한 PAYSEQ는 `~/.config/ledger/naver_done.json`.
 
 ## 국민카드 문자 수집
 - 아이폰 단축어 자동화가 국민카드 문자를 OneDrive `가계부/sms.txt`에 한 줄씩 추가 → `python3 ledger.py rfile '가계부/sms.txt'`.
