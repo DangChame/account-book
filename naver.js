@@ -1,0 +1,75 @@
+// 네이버페이 내역 수집 도구
+//   node naver.js login   : 일회용 번호 로그인. ~/.config/ledger/naver_code 파일에 번호가 생기면 입력.
+//   node naver.js history : 저장된 세션으로 페이머니 내역 페이지를 열어 텍스트/응답 저장.
+// 세션(쿠키)은 ~/.config/ledger/naver_state.json (권한 600, 저장소 밖)에만 저장한다.
+const { chromium } = require('playwright');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const DIR = path.join(os.homedir(), '.config', 'ledger');
+const STATE = path.join(DIR, 'naver_state.json');
+const CODE = path.join(DIR, 'naver_code');
+const OUT = process.env.NAVER_OUT || path.join(DIR, 'naver_out');
+const HISTORY = 'https://pay.naver.com/paymoney/history';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
+
+function saveState(state) {
+  fs.mkdirSync(DIR, { recursive: true });
+  fs.writeFileSync(STATE, JSON.stringify(state), { mode: 0o600 });
+}
+
+async function login() {
+  fs.mkdirSync(DIR, { recursive: true });
+  try { fs.unlinkSync(CODE); } catch {}
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ locale: 'ko-KR', userAgent: UA, viewport: { width: 1280, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto('https://nid.naver.com/nidlogin.login?url=' + encodeURIComponent(HISTORY), { waitUntil: 'load' });
+  await p.click('#onetime_login');
+  await p.waitForSelector('#OnetimeCode');
+  console.log('READY', new Date().toISOString());
+  const deadline = Date.now() + 15 * 60 * 1000;
+  while (!fs.existsSync(CODE)) {
+    if (Date.now() > deadline) { console.log('TIMEOUT'); await b.close(); process.exit(1); }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  const code = fs.readFileSync(CODE, 'utf8').trim();
+  fs.unlinkSync(CODE);
+  await p.fill('#OnetimeCode', code);
+  await p.click('[id="otnlog.login"]');
+  await p.waitForTimeout(6000);
+  console.log('AFTER', p.url());
+  fs.writeFileSync(path.join(DIR, 'naver_after.txt'), (await p.innerText('body')).slice(0, 2000));
+  const cookies = await ctx.cookies();
+  const ok = cookies.some(c => c.name === 'NID_SES');
+  if (ok) { saveState(await ctx.storageState()); console.log('LOGIN OK'); }
+  else console.log('LOGIN FAIL');
+  await b.close();
+}
+
+async function history() {
+  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
+  fs.mkdirSync(OUT, { recursive: true });
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ locale: 'ko-KR', userAgent: UA, storageState: STATE, viewport: { width: 1280, height: 1600 } });
+  const p = await ctx.newPage();
+  const apis = [];
+  p.on('response', async r => {
+    const ct = r.headers()['content-type'] || '';
+    if (ct.includes('json') && /pay\.naver\.com/.test(r.url())) {
+      try { apis.push({ url: r.url(), body: await r.json() }); } catch {}
+    }
+  });
+  await p.goto(HISTORY, { waitUntil: 'load' });
+  await p.waitForTimeout(6000);
+  console.log('URL', p.url());
+  if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); await b.close(); process.exit(3); }
+  fs.writeFileSync(path.join(OUT, 'page.txt'), await p.innerText('body'));
+  fs.writeFileSync(path.join(OUT, 'api.json'), JSON.stringify(apis, null, 1), { mode: 0o600 });
+  saveState(await ctx.storageState());
+  console.log('SAVED', apis.length, 'api responses');
+  await b.close();
+}
+
+({ login, history })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
