@@ -46,6 +46,7 @@
 ## 네이버쇼핑/네이버페이 결제 상품명
 - `node naver.js payhist 2` → naver_out/payhist.json (id, date(ms), merchant, product, price, rest, method CREDIT_CARD 등, status).
 - CREDIT_CARD 결제는 농협카드 화면의 '네이버파이낸셜 ○원' 또는 국민카드 문자 '네이버페이 ○원'과 날짜·금액으로 짝지어 카드 구분(짝 없으면 엄마카드로 보고 보고서에 표시). 머니 결제는 paymoneyList에서 이미 처리.
+- **status가 `취소완료`·`결제취소`인 건은 무조건 제외.** `부분취소`는 실제 금액을 확인하고 애매하면 사용자에게 묻는다. (다른 출처도 마찬가지로 취소/승인취소 건을 반드시 걸러낸다)
 - 이미 기록된 건이면 사유만 상품명으로 보강. 처리한 id는 `~/.config/ledger/payhist_done.json`.
 
 ## 다음 달 시트 자동 생성
