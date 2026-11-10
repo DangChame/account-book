@@ -14,6 +14,11 @@
   2. 사용자가 로그인 후 빈 화면 주소창 URL(`...nativeclient?code=...`)을 보내면 `python3 ledger.py login-code '<URL>'`.
 - 앱 ID: 기본은 오픈소스 'OneDrive Client for Linux'의 공개 ID (개인 계정은 앱 등록 불가, 사용자가 이 방식에 동의함). `LEDGER_CLIENT_ID` 또는 `ledger_config.json`으로 바꿀 수 있다.
 
+## 네이버페이(머니카드) 자동 수집
+- `node naver.js history` → `~/.config/ledger/naver_out/api.json` (`paymoneyList`: PAYDTTM, PAYAMT, FILTER use/charge, TYPE nfc=머니카드·pmuse=페이결제·pmcancel=취소, TITLE=가맹점)
+- `charge`(저축 계좌에서 충전)는 지출 아님. 가승인/취소 쌍은 제외.
+- 세션 없음/만료(`NO SESSION`/`SESSION EXPIRED`) → 백그라운드로 `node naver.js login` 실행 후 사용자에게 네이버 앱 '일회용 로그인 번호'를 받아 `~/.config/ledger/naver_code`에 기록.
+
 ## 기록 규칙
 - 시트명 `YY-MM` (예: 26-11). 날짜 행 = 일 + 2 (1일 → 3행).
 - 사용자가 말하는 지출은 **기본적으로 엄마카드(오른쪽, Q~AL열)**. 사용자가 "내 돈"이라고 언급할 때만 **내 돈(왼쪽, B~O열)**.
