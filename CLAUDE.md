@@ -43,9 +43,19 @@
 - 농협카드 화면/사진의 '쿠팡 ○원'과 같은 날짜·금액이면 **한 번만** 기록. 처리한 영수증 mailSN은 `~/.config/ledger/coupang_pg_done.json`.
 - 메일 검색 결과에 다른 메일이 섞일 수 있으니 본문/제목에 '쿠팡(주)' 결제 문구가 있는 것만 사용.
 
+## 네이버쇼핑/네이버페이 결제 상품명
+- `node naver.js payhist 2` → naver_out/payhist.json (id, date(ms), merchant, product, price, rest, method CREDIT_CARD 등, status).
+- CREDIT_CARD 결제는 농협카드 화면의 '네이버파이낸셜 ○원' 또는 국민카드 문자 '네이버페이 ○원'과 날짜·금액으로 짝지어 카드 구분(짝 없으면 엄마카드로 보고 보고서에 표시). 머니 결제는 paymoneyList에서 이미 처리.
+- 이미 기록된 건이면 사유만 상품명으로 보강. 처리한 id는 `~/.config/ledger/payhist_done.json`.
+
+## 다음 달 시트 자동 생성
+- 매달 25일 이후 새벽 실행에서 `python3 newmonth_remote.py` (다음 달 시트 없으면: 백업→newmonth.py로 복사→If-Match 업로드). 회색 고정지출 유지, '○월관리비' 갱신+금액 '?', 할부 (n/m) 회차+1(끝난 건 제외), 나머지 비움, I37/I38 초기화.
+- 백업은 OneDrive `가계부/백업/`.
+
 ## 매일 새벽 자동 실행 (한국시간 05:15)
 1. `node naver.js history` + `node naver.js points <월초> <월말>` (I37/I38 월 누적 갱신) → naver_done에 없는 `use` 건만 (nfc/pmuse, 취소 쌍 제외) 처리.
 2. `node naver.js kbmail`의 새 메일 처리 + 쿠팡 영수증(`coupang_pg`) 처리 + `node naver.js kbmail '[농협카드 화면]' nhmail`의 새 메일 처리.
+2-1. `node naver.js payhist 2`로 네이버쇼핑 상품명 처리. 25일 이후면 `python3 newmonth_remote.py`.
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
 4. 무엇을 기록했는지 짧게 보고. 로그인 만료 시 재로그인 요청.
 

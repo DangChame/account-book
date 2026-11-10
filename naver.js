@@ -135,4 +135,31 @@ async function kbmail() {
   await b.close();
 }
 
-({ login, history, points, kbmail })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
+async function payhist() {
+  // node naver.js payhist [pages=2] -> naver_out/payhist.json : 네이버페이 결제내역(상품명, 금액, 결제수단)
+  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
+  const pages = parseInt(process.argv[3] || '2', 10);
+  fs.mkdirSync(OUT, { recursive: true });
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE });
+  const p = await ctx.newPage();
+  const items = [];
+  for (let i = 1; i <= pages; i++) {
+    await p.goto('https://pay.naver.com/pc/history?page=' + i, { waitUntil: 'load', timeout: 45000 });
+    if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); await b.close(); process.exit(3); }
+    const nd = JSON.parse(await p.evaluate(() => document.getElementById('__NEXT_DATA__').textContent));
+    const q = nd.props.pageProps.dehydratedState.queries.find(x => x.queryKey[0] === 'PAYMENT_LIST');
+    for (const it of (q ? q.state.data.pages[0].items : [])) {
+      const a = it.additionalData || {};
+      items.push({ id: it._id, date: it.date, merchant: it.merchantName, product: (it.product || {}).name,
+        price: (it.product || {}).price, rest: (it.product || {}).restAmount, status: (it.status || {}).text,
+        method: a.paymentMethod, orderAmount: a.orderAmount, service: it.serviceType });
+    }
+  }
+  fs.writeFileSync(path.join(OUT, 'payhist.json'), JSON.stringify(items, null, 1), { mode: 0o600 });
+  saveState(await ctx.storageState());
+  console.log('PAYHIST', items.length);
+  await b.close();
+}
+
+({ login, history, points, kbmail, payhist })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
