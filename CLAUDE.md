@@ -57,7 +57,11 @@
 2. `node naver.js kbmail`의 새 메일 처리 + 쿠팡 영수증(`coupang_pg`) 처리 + `node naver.js kbmail '[농협카드 화면]' nhmail`의 새 메일 처리.
 2-1. `node naver.js payhist 2`로 네이버쇼핑 상품명 처리. 25일 이후면 `python3 newmonth_remote.py`.
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
-4. 무엇을 기록했는지 짧게 보고. 로그인 만료 시 재로그인 요청.
+4. 무엇을 기록했는지 짧게 보고(텔레그램 `tg.py`로도 전송). 로그인 만료 시 재로그인 요청.
+
+## 텔레그램 보고
+- 봇 @autoekdcoal_bot. 설정 `~/.config/ledger/telegram.json` {token, chat_id} (저장소 밖, 권한 600). 토큰은 절대 커밋하지 않는다.
+- 새벽 실행 결과는 `python3 tg.py "메시지"`로도 보낸다. chat_id가 없으면 tg.py가 getUpdates로 찾는다(사용자가 봇에게 먼저 말을 걸어야 함).
 
 ## 기록 규칙
 - 시트명 `YY-MM` (예: 26-11). 날짜 행 = 일 + 2 (1일 → 3행).
