@@ -101,4 +101,36 @@ async function points() {
   await b.close();
 }
 
-({ login, history, points })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
+async function kbmail() {
+  // node naver.js kbmail -> naver_out/kbmail.json : 제목이 '[국민카드 문자]'인 메일만 읽는다 (다른 메일은 열지 않음)
+  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
+  const KW = '[국민카드 문자]';
+  fs.mkdirSync(OUT, { recursive: true });
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE });
+  const p = await ctx.newPage();
+  await p.goto('https://mail.naver.com/v2/folders/0/all', { waitUntil: 'load', timeout: 45000 });
+  if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); await b.close(); process.exit(3); }
+  const mails = await p.evaluate(async (kw) => {
+    const out = [];
+    for (let page = 1; page <= 5; page++) {
+      const r = await fetch('/json/search/?page=' + page + '&folderSN=-1&subject=' + encodeURIComponent(kw), { method: 'POST', credentials: 'include' });
+      const j = await r.json();
+      const hits = (j.mailData || []).filter(m => (m.subject || '').includes(kw));
+      for (const m of hits) {
+        const x = await fetch('/json/read/?mailSN=' + m.mailSN + '&markRead=false', { method: 'POST', credentials: 'include' });
+        const d = await x.json(); const mi = d.mailInfo || {};
+        out.push({ mailSN: m.mailSN, time: m.receivedTime || m.sentTime,
+                   body: (mi.body || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim() });
+      }
+      if (page >= (j.lastPage || 1)) break;
+    }
+    return out;
+  }, KW);
+  fs.writeFileSync(path.join(OUT, 'kbmail.json'), JSON.stringify(mails, null, 1), { mode: 0o600 });
+  saveState(await ctx.storageState());
+  console.log('KBMAIL', mails.length);
+  await b.close();
+}
+
+({ login, history, points, kbmail })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });

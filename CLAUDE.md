@@ -22,13 +22,15 @@
 - **머니카드는 머니 차감액만 기록** (네이버 포인트로 낸 부분은 내 돈이 아니므로 제외). **포인트 적립·해외수수료 환급도 기록하지 않는다** (포인트는 들어오는 것도 쓰는 것도 지출/수입 계산에서 무시).
 - 단, **참고용으로** 수입 옆 두 칸에 그 달 누적만 텍스트로 적는다: I37 `N포인트 적립 +4,117`, I38 `N포인트 사용 -9,511` (매일 갱신, 일별 기록 안 함). `node naver.js points 20261101 20261130` → naver_out/points.json (tradeAmount 양수=적립, 음수=사용). 처리한 PAYSEQ는 `~/.config/ledger/naver_done.json`.
 
-## 국민카드 문자 수집
-- 아이폰 단축어 자동화('국민카드' 포함 문자 → '파일 저장', 위치 OneDrive `가계부/카드문자`, 저장 위치 묻기 끔)가 문자 1건당 파일 1개를 만든다 → `python3 ledger.py rdir '가계부/카드문자'`.
-- 처리한 파일 이름은 `~/.config/ledger/sms_done.json`. 취소 문자는 해당 결제를 지운다. (`가계부/sms.txt` 추가 방식은 iOS 경로 문제로 폐기)
+## 국민카드 문자 수집 (메일 방식)
+- 아이폰 단축어 자동화: 문자에 '국민카드' 포함 → '메일 보내기'(받는 사람 본인 네이버 메일, 제목 `[국민카드 문자]`, 본문=단축어 입력, 작성 시트 끔).
+- `node naver.js kbmail` → `~/.config/ledger/naver_out/kbmail.json` (mailSN, time(초), body). **제목이 `[국민카드 문자]`인 메일만** 읽는다 — 다른 메일은 열지 않는다.
+- 처리한 mailSN은 `~/.config/ledger/kbmail_done.json`. 본문이 빈 메일(수동 시험)은 무시. 취소 문자는 해당 결제를 지운다.
+- (OneDrive 파일 방식은 iOS에서 OneDrive 폴더 선택 불가로 폐기)
 
 ## 매일 아침 자동 실행 (한국시간 오전 8시 전후)
 1. `node naver.js history` + `node naver.js points <월초> <월말>` (I37/I38 월 누적 갱신) → naver_done에 없는 `use` 건만 (nfc/pmuse, 취소 쌍 제외) 처리.
-2. `rdir 가계부/카드문자`의 새 파일 처리.
+2. `node naver.js kbmail`의 새 메일 처리.
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
 4. 무엇을 기록했는지 짧게 보고. 로그인 만료 시 재로그인 요청.
 
