@@ -147,7 +147,9 @@ async function payhist() {
   for (let i = 1; i <= pages; i++) {
     await p.goto('https://pay.naver.com/pc/history?page=' + i, { waitUntil: 'load', timeout: 45000 });
     if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); await b.close(); process.exit(3); }
-    const nd = JSON.parse(await p.evaluate(() => document.getElementById('__NEXT_DATA__').textContent));
+    const raw = await p.evaluate(() => { const e = document.getElementById('__NEXT_DATA__'); return e ? e.textContent : null; });
+    if (!raw) { console.log('NO DATA page', i, p.url()); break; }
+    const nd = JSON.parse(raw);
     const q = nd.props.pageProps.dehydratedState.queries.find(x => x.queryKey[0] === 'PAYMENT_LIST');
     for (const it of (q ? q.state.data.pages[0].items : [])) {
       const a = it.additionalData || {};
