@@ -240,6 +240,19 @@ def remote_text(drive_path):
         return r.read().decode("utf-8", "replace")
 
 
+def remote_folder_texts(drive_folder):
+    """폴더 안 파일들의 (이름, 수정시각, 내용) 목록 — 단축어 '파일 저장'으로 쌓인 카드 문자용."""
+    r = graph("GET", "/me/drive/root:/" + urllib.parse.quote(drive_folder)
+              + ":/children?$top=999&$orderby=lastModifiedDateTime")
+    out = []
+    for it in r.get("value", []):
+        if "file" not in it:
+            continue
+        with urllib.request.urlopen(it["@microsoft.graph.downloadUrl"]) as f:
+            out.append((it["name"], it["lastModifiedDateTime"], f.read().decode("utf-8", "replace")))
+    return out
+
+
 def show(path, sheet):
     import openpyxl
     ws = openpyxl.load_workbook(path)[sheet]
@@ -268,6 +281,9 @@ if __name__ == "__main__":
         print(login_url())
     elif cmd == "login-code":  # login-code '<리디렉션된 URL>'
         login_code(args[0])
+    elif cmd == "rdir":  # rdir '가계부/카드문자'
+        for name, ts, text in remote_folder_texts(args[0]):
+            print(f"=== {name} | {ts}\n{text}")
     elif cmd == "rfile":  # rfile '가계부/sms.txt'
         print(remote_text(args[0]))
     elif cmd == "rget":  # rget sheet A1:B2
