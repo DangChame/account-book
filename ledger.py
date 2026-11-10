@@ -224,6 +224,19 @@ def remote_set(sheet, updates):
     return {ref: remote_get(sheet, ref)[0][0] for ref in updates}
 
 
+def remote_text(drive_path):
+    """내 OneDrive의 텍스트 파일 내용 (예: '가계부/sms.txt'). 없으면 빈 문자열."""
+    url = GRAPH + "/me/drive/root:/" + urllib.parse.quote(drive_path) + ":/content"
+    req = urllib.request.Request(url, headers={"Authorization": "Bearer " + access_token()})
+    try:
+        with urllib.request.urlopen(req) as r:
+            return r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return ""
+        raise SystemExit(f"Graph GET {drive_path} -> {e.code}: {e.read().decode()[:300]}")
+
+
 def show(path, sheet):
     import openpyxl
     ws = openpyxl.load_workbook(path)[sheet]
@@ -252,6 +265,8 @@ if __name__ == "__main__":
         print(login_url())
     elif cmd == "login-code":  # login-code '<리디렉션된 URL>'
         login_code(args[0])
+    elif cmd == "rfile":  # rfile '가계부/sms.txt'
+        print(remote_text(args[0]))
     elif cmd == "rget":  # rget sheet A1:B2
         for row in remote_get(args[0], args[1]):
             print(row)

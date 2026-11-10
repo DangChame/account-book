@@ -19,6 +19,18 @@
 - `charge`(저축 계좌에서 충전)는 지출 아님. 가승인/취소 쌍은 제외.
 - 세션 없음/만료(`NO SESSION`/`SESSION EXPIRED`) → 백그라운드로 `node naver.js login` 실행 후 사용자에게 네이버 앱 '일회용 로그인 번호'를 받아 `~/.config/ledger/naver_code`에 기록.
 
+- **머니카드는 머니 차감액만 기록** (네이버 포인트로 낸 부분은 내 돈이 아니므로 제외). 처리한 PAYSEQ는 `~/.config/ledger/naver_done.json`.
+
+## 국민카드 문자 수집
+- 아이폰 단축어 자동화가 국민카드 문자를 OneDrive `가계부/sms.txt`에 한 줄씩 추가 → `python3 ledger.py rfile '가계부/sms.txt'`.
+- 처리한 줄 수는 `~/.config/ledger/sms_done` (파일 줄 수 기준). 취소 문자는 해당 결제를 지운다.
+
+## 매일 아침 자동 실행 (한국시간 오전 8시 전후)
+1. `node naver.js history` → naver_done에 없는 `use` 건만 (nfc/pmuse, 취소 쌍 제외) 처리.
+2. `rfile 가계부/sms.txt`의 새 줄 처리.
+3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
+4. 무엇을 기록했는지 짧게 보고. 로그인 만료 시 재로그인 요청.
+
 ## 기록 규칙
 - 시트명 `YY-MM` (예: 26-11). 날짜 행 = 일 + 2 (1일 → 3행).
 - 사용자가 말하는 지출은 **기본적으로 엄마카드(오른쪽, Q~AL열)**. 사용자가 "내 돈"이라고 언급할 때만 **내 돈(왼쪽, B~O열)**.
