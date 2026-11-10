@@ -43,7 +43,7 @@
 - 농협카드 화면/사진의 '쿠팡 ○원'과 같은 날짜·금액이면 **한 번만** 기록. 처리한 영수증 mailSN은 `~/.config/ledger/coupang_pg_done.json`.
 - 메일 검색 결과에 다른 메일이 섞일 수 있으니 본문/제목에 '쿠팡(주)' 결제 문구가 있는 것만 사용.
 
-## 매일 아침 자동 실행 (한국시간 오전 8시 전후)
+## 매일 새벽 자동 실행 (한국시간 05:15)
 1. `node naver.js history` + `node naver.js points <월초> <월말>` (I37/I38 월 누적 갱신) → naver_done에 없는 `use` 건만 (nfc/pmuse, 취소 쌍 제외) 처리.
 2. `node naver.js kbmail`의 새 메일 처리 + 쿠팡 영수증(`coupang_pg`) 처리 + `node naver.js kbmail '[농협카드 화면]' nhmail`의 새 메일 처리.
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
