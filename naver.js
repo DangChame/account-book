@@ -23,7 +23,7 @@ async function login() {
   fs.mkdirSync(DIR, { recursive: true });
   try { fs.unlinkSync(CODE); } catch {}
   const b = await chromium.launch();
-  const ctx = await b.newContext({ locale: 'ko-KR', userAgent: UA, viewport: { width: 1280, height: 900 } });
+  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, viewport: { width: 1280, height: 900 } });
   const p = await ctx.newPage();
   await p.goto('https://nid.naver.com/nidlogin.login?url=' + encodeURIComponent(HISTORY), { waitUntil: 'load' });
   await p.click('#onetime_login');
@@ -52,7 +52,7 @@ async function history() {
   if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
   fs.mkdirSync(OUT, { recursive: true });
   const b = await chromium.launch();
-  const ctx = await b.newContext({ locale: 'ko-KR', userAgent: UA, storageState: STATE, viewport: { width: 1280, height: 1600 } });
+  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE, viewport: { width: 1280, height: 1600 } });
   const p = await ctx.newPage();
   const apis = [];
   p.on('response', async r => {
@@ -72,4 +72,33 @@ async function history() {
   await b.close();
 }
 
-({ login, history })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
+async function points() {
+  // node naver.js points 20261101 20261130  -> naver_out/points.json (적립/사용 내역)
+  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
+  const [from, to] = process.argv.slice(3);
+  fs.mkdirSync(OUT, { recursive: true });
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE });
+  const p = await ctx.newPage();
+  await p.goto('https://point.pay.naver.com/pointshistory/list?category=all', { waitUntil: 'load' });
+  if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); await b.close(); process.exit(3); }
+  const trades = [];
+  let body = { categoryType: 'ALL', tradeDateRange: { from, to } };
+  for (let i = 0; i < 20; i++) {
+    const j = await p.evaluate(async (bd) => {
+      const r = await fetch('/pd/api/point-history/accumulable-list', { method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bd) });
+      return r.json();
+    }, body);
+    trades.push(...(j.trades || []));
+    const cur = j.pageableCursor || {};
+    if (!cur.next) break;
+    body = { ...body, pageableCursor: { next: cur.next, nextTradeId: cur.nextTradeId } };
+  }
+  fs.writeFileSync(path.join(OUT, 'points.json'), JSON.stringify(trades, null, 1), { mode: 0o600 });
+  saveState(await ctx.storageState());
+  console.log('POINTS', trades.length);
+  await b.close();
+}
+
+({ login, history, points })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
