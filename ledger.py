@@ -226,15 +226,18 @@ def remote_set(sheet, updates):
 
 def remote_text(drive_path):
     """내 OneDrive의 텍스트 파일 내용 (예: '가계부/sms.txt'). 없으면 빈 문자열."""
-    url = GRAPH + "/me/drive/root:/" + urllib.parse.quote(drive_path) + ":/content"
+    url = GRAPH + "/me/drive/root:/" + urllib.parse.quote(drive_path)
     req = urllib.request.Request(url, headers={"Authorization": "Bearer " + access_token()})
     try:
         with urllib.request.urlopen(req) as r:
-            return r.read().decode("utf-8", "replace")
+            dl = json.load(r)["@microsoft.graph.downloadUrl"]
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return ""
         raise SystemExit(f"Graph GET {drive_path} -> {e.code}: {e.read().decode()[:300]}")
+    # 다운로드 URL은 사전 서명돼 있어 인증 헤더 없이 받는다
+    with urllib.request.urlopen(dl) as r:
+        return r.read().decode("utf-8", "replace")
 
 
 def show(path, sheet):
