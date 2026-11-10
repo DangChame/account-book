@@ -102,9 +102,11 @@ async function points() {
 }
 
 async function kbmail() {
-  // node naver.js kbmail -> naver_out/kbmail.json : 제목이 '[국민카드 문자]'인 메일만 읽는다 (다른 메일은 열지 않음)
+  // node naver.js kbmail ['[농협카드 화면]' nhmail] -> naver_out/<name>.json
+  // 지정한 제목(기본 '[국민카드 문자]')의 메일만 읽는다 (다른 메일은 열지 않음)
   if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
-  const KW = '[국민카드 문자]';
+  const KW = process.argv[3] || '[국민카드 문자]';
+  const NAME = process.argv[4] || 'kbmail';
   fs.mkdirSync(OUT, { recursive: true });
   const b = await chromium.launch();
   const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE });
@@ -127,9 +129,9 @@ async function kbmail() {
     }
     return out;
   }, KW);
-  fs.writeFileSync(path.join(OUT, 'kbmail.json'), JSON.stringify(mails, null, 1), { mode: 0o600 });
+  fs.writeFileSync(path.join(OUT, NAME + '.json'), JSON.stringify(mails, null, 1), { mode: 0o600 });
   saveState(await ctx.storageState());
-  console.log('KBMAIL', mails.length);
+  console.log(NAME.toUpperCase(), mails.length);
   await b.close();
 }
 

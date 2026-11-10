@@ -28,9 +28,15 @@
 - 처리한 mailSN은 `~/.config/ledger/kbmail_done.json`. 본문이 빈 메일(수동 시험)은 무시. 취소 문자는 해당 결제를 지운다.
 - (OneDrive 파일 방식은 iOS에서 OneDrive 폴더 선택 불가로 폐기)
 
+## 엄마카드(NH) 화면 메일 (뒷면 탭 반자동)
+- 사용자가 농협카드 이용내역 화면에서 폰 뒷면 두 번 탭 → 단축어(스크린샷→텍스트 추출→메일, 제목 `[농협카드 화면]`).
+- `node naver.js kbmail '[농협카드 화면]' nhmail` → naver_out/nhmail.json. OCR 텍스트에서 가맹점/날짜는 위에, 금액(`12,890원>`)은 아래에 **같은 순서로** 나온다 → 순서대로 짝짓기.
+- 이미 가계부에 있는 건(같은 날짜·금액)은 건너뛰고 새 건만 엄마카드 쪽에 기록. 처리한 mailSN은 `~/.config/ledger/nhmail_done.json`.
+- 식자재마트·식재료는 간식(U/W) 칸, 사유에 가맹점.
+
 ## 매일 아침 자동 실행 (한국시간 오전 8시 전후)
 1. `node naver.js history` + `node naver.js points <월초> <월말>` (I37/I38 월 누적 갱신) → naver_done에 없는 `use` 건만 (nfc/pmuse, 취소 쌍 제외) 처리.
-2. `node naver.js kbmail`의 새 메일 처리.
+2. `node naver.js kbmail`의 새 메일 처리 + `node naver.js kbmail '[농협카드 화면]' nhmail`의 새 메일 처리.
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
 4. 무엇을 기록했는지 짧게 보고. 로그인 만료 시 재로그인 요청.
 
