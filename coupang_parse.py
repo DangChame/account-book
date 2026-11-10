@@ -45,7 +45,51 @@ def orders(month=None):
     return sorted(out, key=lambda o: o["dt"])
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "pg":
+    pass
+elif __name__ == "__main__":
     for o in orders(sys.argv[1] if len(sys.argv) > 1 else None):
         names = " / ".join(i["name"] for i in o["items"])
         print(f'{o["dt"]} {o["total"]:>8} [{o["pay"]}] {names}')
+
+
+# ---- 결제대행사 영수증 메일 (NHN KCP / KICC 이지페이): 쿠팡·쿠팡이츠 모든 결제에 한 통씩 온다 ----
+PG_SRC = os.path.expanduser("~/.config/ledger/naver_out/coupang_pg.json")
+
+
+def parse_pg(body):
+    t = re.sub(r"\s+", " ", body)
+    if "카드종류" in t:  # NHN KCP
+        dt = re.search(r"결제일시 (\d{4})년 (\d\d)월 (\d\d)일 (\d\d)시 (\d\d)분", t)
+        amt = re.search(r"결제금액 ([\d,]+) ?원", t)
+        card = re.search(r"카드종류 (\S+)", t)
+        item = re.search(r"주문상품명 (.+?) 사이트주소", t)
+    else:  # KICC 이지페이
+        dt = re.search(r"결제일시 (\d{4})/(\d\d)/(\d\d) (\d\d):(\d\d)", t)
+        amt = re.search(r"상품금액 ([\d,]+)원", t)
+        card = re.search(r"결제기관 (\S+)", t)
+        item = re.search(r"상품명 (.+?) 결제일시", t)
+    if not (dt and amt):
+        return None
+    c = card.group(1) if card else ""
+    return {"dt": "{}-{}-{} {}:{}".format(*dt.groups()), "amount": int(amt.group(1).replace(",", "")),
+            "card": c, "mom": ("NH" in c or "농협" in c), "item": item.group(1).strip() if item else ""}
+
+
+def receipts(month=None):
+    out = []
+    for m in json.load(open(PG_SRC)):
+        r = parse_pg(m["body"])
+        if r and (not month or r["dt"].replace("-", "").startswith(month)):
+            r["mailSN"] = m["mailSN"]
+            out.append(r)
+    return sorted(out, key=lambda r: r["dt"])
+
+
+def main_pg(month):
+    for r in receipts(month):
+        print(f'{r["dt"]} {r["amount"]:>8} [{"엄마카드" if r["mom"] else "내돈:" + r["card"]}] {r["item"][:50]}')
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "pg":
+    main_pg(sys.argv[2] if len(sys.argv) > 2 else None)
