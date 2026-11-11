@@ -120,7 +120,7 @@ async function kbmail() {
       const j = await r.json();
       const hits = (j.mailData || []).filter(m => (m.subject || '').includes(kw));
       for (const m of hits) {
-        const x = await fetch('/json/read/?mailSN=' + m.mailSN + '&markRead=false', { method: 'POST', credentials: 'include' });
+        const x = await fetch('/json/read/?mailSN=' + m.mailSN + '&markRead=true', { method: 'POST', credentials: 'include' });
         const d = await x.json(); const mi = d.mailInfo || {};
         out.push({ mailSN: m.mailSN, time: m.receivedTime || m.sentTime,
                    body: (mi.body || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').trim() });
