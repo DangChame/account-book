@@ -45,6 +45,12 @@
 - **쿠팡이츠는 메일이 늦게 온다.** 농협카드 화면 등에서 '쿠팡 ○원'인데 쿠팡 영수증/주문 메일이 없으면 쿠팡이츠로 보고 시간대(점심/저녁/간식) 칸에 `쿠팡이츠 배달주문`으로 먼저 기록하고 `~/.config/ledger/eats_pending.json`에 {sheet, amount_cell, reason_cell, amount, dt} 저장. 이후 같은 금액(·날짜 근처)의 `[쿠팡이츠]` 주문 메일이나 영수증이 오면 사유를 `쿠팡이츠 메뉴명`으로 업데이트하고 pending에서 제거.
 - 메일 검색 결과에 다른 메일이 섞일 수 있으니 본문/제목에 '쿠팡(주)' 결제 문구가 있는 것만 사용.
 
+## 결제대행사 영수증 (가맹점 무관, 완전 자동) — 요기요 등
+- 쿠팡 외 온라인 결제(요기요=주식회사 위대한상상 등)도 결제대행사 영수증 메일이 결제 직후 온다.
+- 수집: `node naver.js kbmail '쿠팡(주)' coupang_pg` + `node naver.js kbmail 'NHN KCP' pg_kcp` + `node naver.js kbmail '결제하신 내역' pg_kicc` → `python3 coupang_parse.py pg YYYYMM` (세 파일을 합쳐 mailSN 중복 제거; 결제시각·금액·카드·가맹점·상품명).
+- 카드 NH/농협 → 엄마카드, 그 외 → 내 돈. 요기요 등 배달은 쿠팡이츠와 같은 시간대 규칙(점심/저녁/간식), 사유 `요기요 메뉴명`. '포인트 + 일시불'이면 결제금액(카드분)만 기록.
+- 처리한 mailSN은 `~/.config/ledger/coupang_pg_done.json`(모든 영수증 공용).
+
 ## 네이버쇼핑/네이버페이 결제 상품명
 - `node naver.js payhist 2` → naver_out/payhist.json (id, date(ms), merchant, product, price, rest, method CREDIT_CARD 등, status).
 - CREDIT_CARD 결제는 농협카드 화면의 '네이버파이낸셜 ○원' 또는 국민카드 문자 '네이버페이 ○원'과 날짜·금액으로 짝지어 카드 구분(짝 없으면 엄마카드로 보고 보고서에 표시). 머니 결제는 paymoneyList에서 이미 처리.
@@ -57,7 +63,7 @@
 
 ## 매일 새벽 자동 실행 (한국시간 05:15)
 1. `node naver.js history` + `node naver.js points <월초> <월말>` (I37/I38 월 누적 갱신) → naver_done에 없는 `use` 건만 (nfc/pmuse, 취소 쌍 제외) 처리.
-2. `node naver.js kbmail`의 새 메일 처리 + 쿠팡 영수증(`coupang_pg`) 처리 + `node naver.js kbmail '[농협카드 화면]' nhmail`의 새 메일 처리.
+2. `node naver.js kbmail`의 새 메일 처리 + 결제대행사 영수증(`coupang_pg`·`pg_kcp`·`pg_kicc`) 처리 + `node naver.js kbmail '[농협카드 화면]' nhmail`의 새 메일 처리.
 2-1. `node naver.js payhist 2`로 네이버쇼핑 상품명 처리. 25일 이후면 `python3 newmonth_remote.py`.
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
 4. 무엇을 기록했는지 짧게 보고(텔레그램 `tg.py`로도 전송). 로그인 만료 시 재로그인 요청.
