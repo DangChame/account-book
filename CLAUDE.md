@@ -17,7 +17,7 @@
 ## 네이버페이(머니카드) 자동 수집
 - `node naver.js history` → `~/.config/ledger/naver_out/api.json` (`paymoneyList`: PAYDTTM, PAYAMT, FILTER use/charge, TYPE nfc=머니카드·pmuse=페이결제·pmcancel=취소, TITLE=가맹점)
 - `charge`(저축 계좌에서 충전)는 지출 아님. 가승인/취소 쌍은 제외.
-- 세션 없음/만료(`NO SESSION`/`SESSION EXPIRED`) → 백그라운드로 `node naver.js login` 실행 후 사용자에게 네이버 앱 '일회용 로그인 번호'를 받아 `~/.config/ledger/naver_code`에 기록.
+- 세션 없음/만료(`NO SESSION`/`SESSION EXPIRED`) → 아래 'PC 쿠키 가져오기'로 재연결 요청.
 
 - **머니카드는 머니 차감액만 기록** (네이버 포인트로 낸 부분은 내 돈이 아니므로 제외). **포인트 적립·해외수수료 환급도 기록하지 않는다** (포인트는 들어오는 것도 쓰는 것도 지출/수입 계산에서 무시).
 - 단, **참고용으로** 수입 옆 두 칸에 그 달 누적만 텍스트로 적는다: I37 `N포인트 적립 +4,117`, I38 `N포인트 사용 -9,511` (매일 갱신, 일별 기록 안 함). `node naver.js points 20261101 20261130` → naver_out/points.json (tradeAmount 양수=적립, 음수=사용). 처리한 PAYSEQ는 `~/.config/ledger/naver_done.json`.
@@ -68,10 +68,11 @@
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
 4. 무엇을 기록했는지 짧게 보고(텔레그램 `tg.py`로도 전송). 로그인 만료 시 재로그인 요청.
 
-## 네이버 로그인 (아이디·비밀번호 + 로그인 상태 유지)
-- 사용자가 OneDrive `가계부/naver.txt`(1줄 아이디, 2줄 비밀번호)를 올리면 `~/.config/ledger/naver_cred.tmp`로 받아 `NAVER_CRED=... node naver.js loginpw`를 백그라운드 실행. 성공하면 OneDrive의 naver.txt를 지운다.
-- 보안확인(캡차)이 뜨면 `~/.config/ledger/naver_captcha.png`를 **Claude 대화창으로** 보낸다(SendUserFile, 텔레그램 금지). 사용자 답을 `~/.config/ledger/naver_captcha_answer`에 쓰면 입력된다. 캡차는 직접 풀지 않는다.
-- 새 기기 확인(deviceConfirm) 화면은 '등록'으로 넘어간다.
+## 네이버 로그인 = PC 쿠키 가져오기 (기본 방식)
+- **서버에서 아이디·비밀번호 로그인 금지**: 해외 데이터센터 IP라 보안문자 반복 → 2026-11-12 아이디 보호(잠금)까지 걸렸다. `loginpw`는 쓰지 않는다. 일회용 번호 로그인은 '상태 유지'가 없어 1.5일이면 만료.
+- 세션 만료 시: 사용자에게 PC 크롬에서 '로그인 상태 유지' 켜고 'IP 보안' 끈 채 로그인 → F12 → 애플리케이션 → 쿠키 → https://www.naver.com → NID_AUT, NID_SES 값을 OneDrive `가계부/naver_cookie.txt`(1줄 NID_AUT, 2줄 NID_SES)에 저장해 달라고 요청. PC 크롬에서는 로그아웃하지 말 것.
+- 받으면 `~/.config/ledger/naver_state.json`에 두 쿠키(.naver.com, secure, httpOnly)로 저장 → `node naver.js history`로 확인 → OneDrive 파일 삭제. 매 실행 후 storageState 저장으로 쿠키가 갱신된다.
+- 보안확인 사진 등 사용자에게 보여줄 이미지는 Claude 대화창으로(텔레그램 금지).
 
 ## 텔레그램 보고
 - 봇 @autoekdcoal_bot. 설정 `~/.config/ledger/telegram.json` {token, chat_id} (저장소 밖, 권한 600). 토큰은 절대 커밋하지 않는다.
