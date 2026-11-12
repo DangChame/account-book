@@ -99,6 +99,15 @@ async function loginpw() {
     }
     if (/비밀번호를 잘못|아이디 또는 비밀번호/.test(body)) { console.log('WRONG PW'); break; }
     if (/2단계|인증 요청|승인/.test(body)) console.log('WAITING 2FA');
+    // 비밀번호가 비워진 로그인 폼으로 돌아오면 다시 입력
+    if (await p.locator('#pw').isVisible().catch(() => false) && !(await p.locator('#pw').inputValue().catch(() => 'x'))) {
+      await p.locator('#pw').click(); await p.keyboard.type(pw, { delay: 130 });
+      await p.getByRole('button', { name: '로그인', exact: true }).first().click().catch(() => {});
+      console.log('RETYPED PW');
+    }
+    await p.screenshot({ path: path.join(DIR, 'naver_status.png') }).catch(() => {});
+    const head = body.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 6).join(' / ');
+    if (head !== globalThis.__lastHead) { console.log('PAGE', p.url().slice(0, 60), '|', head.slice(0, 160)); globalThis.__lastHead = head; }
   }
   const cookies = await ctx.cookies();
   console.log('URL', p.url().slice(0, 80));
