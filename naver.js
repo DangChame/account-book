@@ -68,12 +68,29 @@ async function loginpw() {
   console.log('keep', await stay.isChecked().catch(() => '?'), 'ipsec', await ip.isChecked().catch(() => '?'));
   await p.screenshot({ path: path.join(DIR, 'naver_before_login.png') });
   await p.getByRole('button', { name: '로그인', exact: true }).first().click();
-  const deadline = Date.now() + 180000;
+  const deadline = Date.now() + 20 * 60 * 1000;
   while (Date.now() < deadline) {
     await p.waitForTimeout(3000);
     if ((await ctx.cookies()).some(c => c.name === 'NID_AUT')) break;
     const body = await p.innerText('body').catch(() => '');
-    if (/자동입력 방지|보안문자|captcha/i.test(body)) { await p.screenshot({ path: path.join(DIR, 'naver_captcha.png') }); console.log('CAPTCHA'); break; }
+    if (/자동입력 방지|보안문자|추가 확인|captcha/i.test(body)) {
+      // 사람이 직접 푼다: 화면 저장 → 사용자 답(naver_captcha_answer 파일) 대기 → 입력
+      const ans = path.join(DIR, 'naver_captcha_answer');
+      try { fs.unlinkSync(ans); } catch {}
+      await p.screenshot({ path: path.join(DIR, 'naver_captcha.png') });
+      console.log('CAPTCHA', new Date().toISOString());
+      const until = Date.now() + 15 * 60 * 1000;
+      while (!fs.existsSync(ans) && Date.now() < until) await new Promise(r => setTimeout(r, 1000));
+      if (!fs.existsSync(ans)) { console.log('CAPTCHA TIMEOUT'); break; }
+      const a = fs.readFileSync(ans, 'utf8').trim(); fs.unlinkSync(ans);
+      await p.getByPlaceholder('정답을 입력해 주세요').fill(a).catch(() => p.locator('input[type=text]').last().fill(a));
+      if (await p.locator('input[name=pw], #pw').first().isVisible().catch(() => false)) {
+        await p.locator('#pw').click(); await p.keyboard.type(pw, { delay: 130 });
+      }
+      await p.getByRole('button', { name: /확인|로그인/ }).first().click();
+      console.log('CAPTCHA SUBMITTED');
+      continue;
+    }
     if (/비밀번호를 잘못|아이디 또는 비밀번호/.test(body)) { console.log('WRONG PW'); break; }
     if (/2단계|인증 요청|승인/.test(body)) console.log('WAITING 2FA');
   }
