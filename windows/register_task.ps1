@@ -2,7 +2,7 @@
 #   powershell -ExecutionPolicy Bypass -File windows\register_task.ps1
 $repo = Split-Path $PSScriptRoot -Parent
 $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$repo\windows\run_daily.ps1`"" -WorkingDirectory $repo
+  -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$repo\windows\run_daily.ps1`"" -WorkingDirectory $repo
 $trigger = New-ScheduledTaskTrigger -Daily -At 05:15
 $settings = New-ScheduledTaskSettingsSet -WakeToRun -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
   -ExecutionTimeLimit (New-TimeSpan -Hours 1)

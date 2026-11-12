@@ -3,6 +3,7 @@ Set-Location (Split-Path $PSScriptRoot -Parent)
 $log = "$HOME\.config\ledger\daily.log"
 # 윈도우 기본 인코딩(cp949)으로 한글 json/출력이 깨지지 않게
 $env:PYTHONUTF8 = "1"; $env:PYTHONIOENCODING = "utf-8"
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)  # claude 출력(UTF-8)을 daily.log에 그대로
 if (-not $env:ASIDE_CDP) { $env:ASIDE_CDP = "http://127.0.0.1:9222" }
 $prompt = Get-Content -Raw -Encoding UTF8 "windows\routine_prompt.txt"
 "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File -Append -Encoding utf8 $log
