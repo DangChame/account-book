@@ -68,6 +68,11 @@
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
 4. 무엇을 기록했는지 짧게 보고(텔레그램 `tg.py`로도 전송). 로그인 만료 시 재로그인 요청.
 
+## 네이버 로그인 (아이디·비밀번호 + 로그인 상태 유지)
+- 사용자가 OneDrive `가계부/naver.txt`(1줄 아이디, 2줄 비밀번호)를 올리면 `~/.config/ledger/naver_cred.tmp`로 받아 `NAVER_CRED=... node naver.js loginpw`를 백그라운드 실행. 성공하면 OneDrive의 naver.txt를 지운다.
+- 보안확인(캡차)이 뜨면 `~/.config/ledger/naver_captcha.png`를 **Claude 대화창으로** 보낸다(SendUserFile, 텔레그램 금지). 사용자 답을 `~/.config/ledger/naver_captcha_answer`에 쓰면 입력된다. 캡차는 직접 풀지 않는다.
+- 새 기기 확인(deviceConfirm) 화면은 '등록'으로 넘어간다.
+
 ## 텔레그램 보고
 - 봇 @autoekdcoal_bot. 설정 `~/.config/ledger/telegram.json` {token, chat_id} (저장소 밖, 권한 600). 토큰은 절대 커밋하지 않는다.
 - 새벽 실행 결과는 `python3 tg.py "메시지"`로도 보낸다. chat_id가 없으면 tg.py가 getUpdates로 찾는다(사용자가 봇에게 먼저 말을 걸어야 함).

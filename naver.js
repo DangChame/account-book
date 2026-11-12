@@ -93,8 +93,7 @@ async function loginpw() {
       await p.waitForFunction(() => [...document.images].filter(i => i.offsetParent).every(i => i.complete && i.naturalWidth > 0), null, { timeout: 15000 }).catch(() => {});
       await p.waitForTimeout(2000);
       await p.screenshot({ path: path.join(DIR, 'naver_captcha.png'), fullPage: true });
-      require('child_process').spawnSync('python3', [path.join(__dirname, 'tg.py'), '--photo', path.join(DIR, 'naver_captcha.png'),
-        '네이버 보안확인: 빈칸 정답을 Claude 대화창에 보내주세요 (15분)'], { stdio: 'inherit' });
+      // 보안확인 사진은 텔레그램이 아니라 Claude 대화창으로 보낸다 (사용자 요청)
       console.log('CAPTCHA', new Date().toISOString());
       const until = Date.now() + 15 * 60 * 1000;
       while (!fs.existsSync(ans) && Date.now() < until) await new Promise(r => setTimeout(r, 1000));
@@ -111,7 +110,11 @@ async function loginpw() {
     if (/비밀번호를 잘못|아이디 또는 비밀번호/.test(body)) { console.log('WRONG PW'); break; }
     if (/2단계|인증 요청|승인/.test(body)) console.log('WAITING 2FA');
     // 비밀번호가 비워진 로그인 폼으로 돌아오면 다시 입력
-    if (await p.locator('#pw').isVisible().catch(() => false) && !(await p.locator('#pw').inputValue().catch(() => 'x'))) {
+    const idEmpty = await p.locator('#id').isVisible().catch(() => false) && !(await p.locator('#id').inputValue().catch(() => 'x'));
+    const pwEmpty = await p.locator('#pw').isVisible().catch(() => false) && !(await p.locator('#pw').inputValue().catch(() => 'x'));
+    if (idEmpty || pwEmpty) {
+      if (idEmpty) { await p.locator('#id').click(); await p.keyboard.type(id, { delay: 120 }); }
+      await p.locator('#pw').fill('').catch(() => {});
       await p.locator('#pw').click(); await p.keyboard.type(pw, { delay: 130 });
       for (let i = 0; i < 2 && !(await p.locator('input[name=nvlong]').first().isChecked().catch(() => true)); i++)
         await p.getByText('로그인 상태 유지', { exact: true }).first().click().catch(() => {});
