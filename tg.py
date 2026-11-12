@@ -38,5 +38,22 @@ def send(text):
     print("SENT")
 
 
+def send_photo(path, caption=""):
+    import uuid
+    cfg = load()
+    b = uuid.uuid4().hex
+    body = (f'--{b}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n{cfg["chat_id"]}\r\n'
+            f'--{b}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n{caption}\r\n'
+            f'--{b}\r\nContent-Disposition: form-data; name="photo"; filename="p.png"\r\nContent-Type: image/png\r\n\r\n').encode() \
+        + open(path, "rb").read() + f"\r\n--{b}--\r\n".encode()
+    req = urllib.request.Request(f"https://api.telegram.org/bot{cfg['token']}/sendPhoto", body,
+                                 headers={"Content-Type": f"multipart/form-data; boundary={b}"})
+    json.load(urllib.request.urlopen(req))
+    print("PHOTO SENT")
+
+
 if __name__ == "__main__":
-    send(" ".join(sys.argv[1:]) or sys.stdin.read())
+    if len(sys.argv) > 2 and sys.argv[1] == "--photo":
+        send_photo(sys.argv[2], " ".join(sys.argv[3:]))
+    else:
+        send(" ".join(sys.argv[1:]) or sys.stdin.read())

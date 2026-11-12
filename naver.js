@@ -77,7 +77,13 @@ async function loginpw() {
       // 사람이 직접 푼다: 화면 저장 → 사용자 답(naver_captcha_answer 파일) 대기 → 입력
       const ans = path.join(DIR, 'naver_captcha_answer');
       try { fs.unlinkSync(ans); } catch {}
-      await p.screenshot({ path: path.join(DIR, 'naver_captcha.png') });
+      // 영수증 이미지가 다 뜰 때까지 기다린 뒤 문제 영역만 찍어서 텔레그램으로 보낸다
+      await p.waitForLoadState('networkidle').catch(() => {});
+      await p.waitForFunction(() => [...document.images].filter(i => i.offsetParent).every(i => i.complete && i.naturalWidth > 0), null, { timeout: 15000 }).catch(() => {});
+      await p.waitForTimeout(2000);
+      await p.screenshot({ path: path.join(DIR, 'naver_captcha.png'), fullPage: true });
+      require('child_process').spawnSync('python3', [path.join(__dirname, 'tg.py'), '--photo', path.join(DIR, 'naver_captcha.png'),
+        '네이버 보안확인: 빈칸 정답을 Claude 대화창에 보내주세요 (15분)'], { stdio: 'inherit' });
       console.log('CAPTCHA', new Date().toISOString());
       const until = Date.now() + 15 * 60 * 1000;
       while (!fs.existsSync(ans) && Date.now() < until) await new Promise(r => setTimeout(r, 1000));
