@@ -139,6 +139,22 @@ async function loginpw() {
   await b.close();
 }
 
+async function loginlocal() {
+  // 윈도우 PC 전용: 브라우저 창을 띄워 사용자가 직접 로그인('로그인 상태 유지' 체크). 로그인되면 세션 저장.
+  const b = await chromium.launch({ headless: false });
+  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', viewport: { width: 1100, height: 850 } });
+  const p = await ctx.newPage();
+  await p.goto('https://nid.naver.com/nidlogin.login?mode=form&url=' + encodeURIComponent(HISTORY), { waitUntil: 'load' });
+  console.log('브라우저 창에서 네이버 로그인하세요 (로그인 상태 유지 체크, IP 보안 끔). 10분 대기...');
+  const until = Date.now() + 10 * 60 * 1000;
+  while (Date.now() < until) {
+    await p.waitForTimeout(2000);
+    const ok = (await ctx.cookies()).some(c => c.name === 'NID_AUT') && !/nidlogin|deviceConfirm/.test(p.url());
+    if (ok) { saveState(await ctx.storageState()); console.log('LOGIN OK'); await b.close(); return; }
+  }
+  console.log('LOGIN TIMEOUT'); await b.close(); process.exit(1);
+}
+
 async function history() {
   if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
   fs.mkdirSync(OUT, { recursive: true });
@@ -255,4 +271,4 @@ async function payhist() {
   await b.close();
 }
 
-({ login, loginpw, history, points, kbmail, payhist })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
+({ login, loginpw, loginlocal, history, points, kbmail, payhist })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });

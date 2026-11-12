@@ -1,0 +1,9 @@
+[매일 새벽 가계부 자동 수집 - 윈도우 PC] CLAUDE.md의 '매일 새벽 자동 실행' 절차대로 진행해라 (윈도우에서는 python3 대신 python):
+1) node naver.js history 로 네이버페이 새 사용 건(naver_done.json에 없는 것, 머니 차감액만) + node naver.js points <월초> <월말> 로 I37/I38 포인트 월 누적 갱신.
+2) node naver.js kbmail 로 '[국민카드 문자]'(국민·신한) 새 메일, node naver.js kbmail "[농협카드 화면]" nhmail, 결제대행사 영수증(node naver.js kbmail "쿠팡(주)" coupang_pg / "NHN KCP" pg_kcp / "결제하신 내역" pg_kicc → python coupang_parse.py pg <YYYYMM>)로 쿠팡·쿠팡이츠·요기요 등 새 결제(coupang_pg_done.json에 없는 것), node naver.js kbmail "주문하신 내역을 확인해주세요" coupang 로 쿠팡이츠 메뉴(eats_pending.json 업데이트), node naver.js payhist 2 로 네이버쇼핑 새 결제(payhist_done.json에 없는 것, 취소 건 제외).
+   같은 결제가 여러 출처에 있으면 날짜·금액으로 짝지어 한 번만 기록. 농협카드 '쿠팡' 결제인데 메일이 없으면 쿠팡이츠 배달주문으로 기록하고 pending 저장.
+3) 매달 25일 이후면 python newmonth_remote.py.
+4) 규칙대로 분류해 python ledger.py rget 으로 빈칸 확인 후 rset 기록. 애매한 건 기록하지 말고 보고에 질문으로 남긴다.
+5) 처리 기록(*_done.json) 갱신.
+6) 기록 내역을 짧게 정리해 python tg.py "..." 로 텔레그램 전송. 새 내역이 없으면 '새 내역 없음'.
+네이버 세션이 만료되면(SESSION EXPIRED) 텔레그램으로 "네이버 재로그인 필요: node naver.js loginlocal 실행" 이라고 알린다. OneDrive 토큰이 만료되면 텔레그램으로 "OneDrive 재로그인 필요" 라고 알린다.
