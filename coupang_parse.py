@@ -35,7 +35,7 @@ def parse(body):
 
 def orders(month=None):
     out = []
-    for m in json.load(open(SRC)):
+    for m in json.load(open(SRC, encoding="utf-8")):
         dt = datetime.datetime.fromtimestamp(m["time"], KST)
         if month and dt.strftime("%Y%m") != month:
             continue
@@ -82,7 +82,7 @@ def parse_pg(body):
 
 def receipts(month=None):
     out, seen = [], set()
-    mails = [m for f in PG_SRCS if os.path.exists(f) for m in json.load(open(f))]
+    mails = [m for f in PG_SRCS if os.path.exists(f) for m in json.load(open(f, encoding="utf-8"))]
     for m in mails:
         if m["mailSN"] in seen:
             continue

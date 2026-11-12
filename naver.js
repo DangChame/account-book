@@ -281,4 +281,6 @@ async function payhist() {
   await b.close();
 }
 
-({ login, loginpw, loginlocal, history, points, kbmail, payhist })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
+({ login, loginpw, loginlocal, history, points, kbmail, payhist })[process.argv[2]]()
+  .then(() => process.exit(0)) // CDP(Aside) 연결은 열린 채 남아 프로세스가 안 끝나므로 명시 종료
+  .catch(e => { console.error(e); process.exit(1); });

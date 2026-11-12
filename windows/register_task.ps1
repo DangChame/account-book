@@ -1,4 +1,4 @@
-# 작업 스케줄러에 '매일 05:15 가계부 수집' 등록 (절전 중이면 깨워서 실행)
+﻿# 작업 스케줄러에 '매일 05:15 가계부 수집' 등록 (절전 중이면 깨워서 실행)
 #   powershell -ExecutionPolicy Bypass -File windows\register_task.ps1
 $repo = Split-Path $PSScriptRoot -Parent
 $action = New-ScheduledTaskAction -Execute "powershell.exe" `

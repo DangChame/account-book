@@ -1,4 +1,4 @@
-# 가계부 자동화 - 윈도우 설치 스크립트 (저장소 폴더에서 PowerShell로 실행)
+﻿# 가계부 자동화 - 윈도우 설치 스크립트 (저장소 폴더에서 PowerShell로 실행)
 #   powershell -ExecutionPolicy Bypass -File windows\setup.ps1
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
