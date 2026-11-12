@@ -71,7 +71,18 @@ async function loginpw() {
   const deadline = Date.now() + 20 * 60 * 1000;
   while (Date.now() < deadline) {
     await p.waitForTimeout(3000);
-    if ((await ctx.cookies()).some(c => c.name === 'NID_AUT')) break;
+    if (/deviceConfirm/.test(p.url())) {
+      // 새 기기 확인 화면: 내용 기록 후 '등록' 진행
+      const t = (await p.innerText('body').catch(() => '')).replace(/\s+/g, ' ').slice(0, 300);
+      console.log('DEVICE CONFIRM |', t);
+      await p.screenshot({ path: path.join(DIR, 'naver_device.png') }).catch(() => {});
+      const btn = p.getByRole('button', { name: /^등록$|등록하기|확인/ }).first();
+      if (await btn.isVisible().catch(() => false)) { await btn.click(); console.log('DEVICE REGISTERED'); }
+      else { const a = p.getByRole('link', { name: /^등록$|등록하기|확인/ }).first(); await a.click().catch(() => {}); }
+      await p.waitForTimeout(4000);
+      continue;
+    }
+    if ((await ctx.cookies()).some(c => c.name === 'NID_AUT') && !/nidlogin|deviceConfirm/.test(p.url())) break;
     const body = await p.innerText('body').catch(() => '');
     if (/자동입력 방지|보안문자|추가 확인|captcha/i.test(body)) {
       // 사람이 직접 푼다: 화면 저장 → 사용자 답(naver_captcha_answer 파일) 대기 → 입력
@@ -102,8 +113,10 @@ async function loginpw() {
     // 비밀번호가 비워진 로그인 폼으로 돌아오면 다시 입력
     if (await p.locator('#pw').isVisible().catch(() => false) && !(await p.locator('#pw').inputValue().catch(() => 'x'))) {
       await p.locator('#pw').click(); await p.keyboard.type(pw, { delay: 130 });
+      for (let i = 0; i < 2 && !(await p.locator('input[name=nvlong]').first().isChecked().catch(() => true)); i++)
+        await p.getByText('로그인 상태 유지', { exact: true }).first().click().catch(() => {});
       await p.getByRole('button', { name: '로그인', exact: true }).first().click().catch(() => {});
-      console.log('RETYPED PW');
+      console.log('RETYPED PW, keep', await p.locator('input[name=nvlong]').first().isChecked().catch(() => '?'));
     }
     await p.screenshot({ path: path.join(DIR, 'naver_status.png') }).catch(() => {});
     const head = body.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 6).join(' / ');
@@ -111,7 +124,7 @@ async function loginpw() {
   }
   const cookies = await ctx.cookies();
   console.log('URL', p.url().slice(0, 80));
-  if (cookies.some(c => c.name === 'NID_AUT')) {
+  if (cookies.some(c => c.name === 'NID_AUT') && !/nidlogin|deviceConfirm/.test(p.url())) {
     const aut = cookies.find(c => c.name === 'NID_AUT');
     saveState(await ctx.storageState());
     console.log('LOGIN OK, NID_AUT expires', aut.expires > 0 ? new Date(aut.expires * 1000).toISOString() : 'session');
