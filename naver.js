@@ -48,6 +48,49 @@ async function login() {
   await b.close();
 }
 
+async function loginpw() {
+  // NAVER_CRED 파일(1줄: 아이디, 2줄: 비밀번호)로 '로그인 상태 유지' 켜고 로그인. 자격 파일은 읽은 즉시 삭제.
+  const credPath = process.env.NAVER_CRED;
+  const [id, pw] = fs.readFileSync(credPath, 'utf8').split(/\r?\n/).map(s => s.trim());
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, viewport: { width: 1280, height: 900 } });
+  const p = await ctx.newPage();
+  await p.goto('https://nid.naver.com/nidlogin.login?mode=form&url=' + encodeURIComponent(HISTORY), { waitUntil: 'load' });
+  await p.click('#id'); await p.keyboard.type(id, { delay: 120 });
+  await p.click('#pw'); await p.keyboard.type(pw, { delay: 130 });
+  // '로그인 상태 유지' 켜기 (라벨 클릭 후 실제 체크 여부 확인)
+  const stay = p.locator('input[name=nvlong]').first();
+  for (let i = 0; i < 2 && !(await stay.isChecked().catch(() => false)); i++)
+    await p.getByText('로그인 상태 유지', { exact: true }).first().click();
+  // IP 보안 끄기 (IP가 바뀌어도 로그인 유지)
+  const ip = p.locator('input[name=ipcheck]').first();
+  if (await ip.isChecked().catch(() => false)) await p.getByText('IP 보안', { exact: true }).first().click().catch(() => {});
+  console.log('keep', await stay.isChecked().catch(() => '?'), 'ipsec', await ip.isChecked().catch(() => '?'));
+  await p.screenshot({ path: path.join(DIR, 'naver_before_login.png') });
+  await p.getByRole('button', { name: '로그인', exact: true }).first().click();
+  const deadline = Date.now() + 180000;
+  while (Date.now() < deadline) {
+    await p.waitForTimeout(3000);
+    if ((await ctx.cookies()).some(c => c.name === 'NID_AUT')) break;
+    const body = await p.innerText('body').catch(() => '');
+    if (/자동입력 방지|보안문자|captcha/i.test(body)) { await p.screenshot({ path: path.join(DIR, 'naver_captcha.png') }); console.log('CAPTCHA'); break; }
+    if (/비밀번호를 잘못|아이디 또는 비밀번호/.test(body)) { console.log('WRONG PW'); break; }
+    if (/2단계|인증 요청|승인/.test(body)) console.log('WAITING 2FA');
+  }
+  const cookies = await ctx.cookies();
+  console.log('URL', p.url().slice(0, 80));
+  if (cookies.some(c => c.name === 'NID_AUT')) {
+    const aut = cookies.find(c => c.name === 'NID_AUT');
+    saveState(await ctx.storageState());
+    console.log('LOGIN OK, NID_AUT expires', aut.expires > 0 ? new Date(aut.expires * 1000).toISOString() : 'session');
+  } else {
+    await p.screenshot({ path: path.join(DIR, 'naver_login_fail.png') });
+    console.log('LOGIN FAIL');
+  }
+  try { fs.unlinkSync(credPath); } catch {}
+  await b.close();
+}
+
 async function history() {
   if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
   fs.mkdirSync(OUT, { recursive: true });
@@ -164,4 +207,4 @@ async function payhist() {
   await b.close();
 }
 
-({ login, history, points, kbmail, payhist })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
+({ login, loginpw, history, points, kbmail, payhist })[process.argv[2]]().catch(e => { console.error(e); process.exit(1); });
