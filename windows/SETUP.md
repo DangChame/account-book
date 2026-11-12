@@ -20,10 +20,13 @@
 
 ## 윈도우에서 달라지는 점
 - `python3` → `python`
-- 네이버 로그인: 서버용 쿠키 복사 대신 **`node naver.js loginlocal`** (브라우저 창에서 직접 로그인, '로그인 상태 유지' 체크). 비밀번호를 스크립트에 넣지 않는다.
+- **웹브라우징·네이버 로그인은 Aside 브라우저**로 한다. 사용자가 Aside에서 네이버에 로그인해 두고, Aside를 `--remote-debugging-port=9222`로 띄운 뒤 환경변수 `ASIDE_CDP=http://127.0.0.1:9222`를 설정하면 `naver.js`가 Aside에 붙어(Playwright connectOverCDP) 그 로그인 세션을 그대로 쓴다. Aside 창은 닫지 않고 스크립트가 연 탭만 닫는다. 비밀번호를 스크립트에 넣지 않는다.
+- Aside가 원격 디버깅을 지원하지 않으면 대안: `node naver.js loginlocal`(Playwright 창에서 직접 로그인 → `naver_state.json`).
+- run_daily는 Aside가 켜져 있어야 한다(시작프로그램에 디버깅 포트 옵션으로 등록).
 - 쿠팡 사이트 직접 접속, 네이버 메일 IMAP(앱 비밀번호)도 가능 — 지금은 메일 웹 방식(naver.js kbmail)을 그대로 쓴다.
 
 ## 문제 생기면
-- 네이버 세션 만료 → `node naver.js loginlocal`
+- 네이버 세션 만료 → Aside에서 네이버 다시 로그인 (대안 모드면 `node naver.js loginlocal`)
+- `ASIDE_CDP` 연결 실패 → Aside가 `--remote-debugging-port=9222`로 켜져 있는지 확인
 - OneDrive 만료 → `python ledger.py login-url` → 로그인 → `python ledger.py login-code "<주소>"`
 - 작업이 안 돌았는지 → `daily.log` 확인, `Get-ScheduledTaskInfo -TaskName "가계부 새벽 자동 수집"`

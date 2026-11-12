@@ -19,6 +19,24 @@ function saveState(state) {
   fs.writeFileSync(STATE, JSON.stringify(state), { mode: 0o600 });
 }
 
+// Aside(또는 다른 크롬 계열 브라우저)에 붙기: ASIDE_CDP=http://127.0.0.1:9222 이면
+// 사용자가 Aside에서 로그인해 둔 네이버 세션을 그대로 쓴다 (로그인은 Aside에서 사람이 직접).
+const CDP = process.env.ASIDE_CDP;
+async function session(extra = {}) {
+  if (CDP) {
+    const b = await chromium.connectOverCDP(CDP);
+    const ctx = b.contexts()[0];
+    const pages = []; const orig = ctx.newPage.bind(ctx);
+    ctx.newPage = async () => { const pg = await orig(); pages.push(pg); return pg; };
+    b.close = async () => { for (const pg of pages) await pg.close().catch(() => {}); }; // Aside 자체는 닫지 않음
+    return { b, ctx };
+  }
+  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE, ...extra });
+  return { b, ctx };
+}
+
 async function login() {
   fs.mkdirSync(DIR, { recursive: true });
   try { fs.unlinkSync(CODE); } catch {}
@@ -156,10 +174,8 @@ async function loginlocal() {
 }
 
 async function history() {
-  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
   fs.mkdirSync(OUT, { recursive: true });
-  const b = await chromium.launch();
-  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE, viewport: { width: 1280, height: 1600 } });
+  const { b, ctx } = await session({ viewport: { width: 1280, height: 1600 } });
   const p = await ctx.newPage();
   const apis = [];
   p.on('response', async r => {
@@ -181,11 +197,9 @@ async function history() {
 
 async function points() {
   // node naver.js points 20261101 20261130  -> naver_out/points.json (적립/사용 내역)
-  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
   const [from, to] = process.argv.slice(3);
   fs.mkdirSync(OUT, { recursive: true });
-  const b = await chromium.launch();
-  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE });
+  const { b, ctx } = await session();
   const p = await ctx.newPage();
   await p.goto('https://point.pay.naver.com/pointshistory/list?category=all', { waitUntil: 'load' });
   if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); await b.close(); process.exit(3); }
@@ -211,12 +225,10 @@ async function points() {
 async function kbmail() {
   // node naver.js kbmail ['[농협카드 화면]' nhmail] -> naver_out/<name>.json
   // 지정한 제목(기본 '[국민카드 문자]')의 메일만 읽는다 (다른 메일은 열지 않음)
-  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
   const KW = process.argv[3] || '[국민카드 문자]';
   const NAME = process.argv[4] || 'kbmail';
   fs.mkdirSync(OUT, { recursive: true });
-  const b = await chromium.launch();
-  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE });
+  const { b, ctx } = await session();
   const p = await ctx.newPage();
   await p.goto('https://mail.naver.com/v2/folders/0/all', { waitUntil: 'load', timeout: 45000 });
   if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); await b.close(); process.exit(3); }
@@ -244,11 +256,9 @@ async function kbmail() {
 
 async function payhist() {
   // node naver.js payhist [pages=2] -> naver_out/payhist.json : 네이버페이 결제내역(상품명, 금액, 결제수단)
-  if (!fs.existsSync(STATE)) { console.log('NO SESSION'); process.exit(2); }
   const pages = parseInt(process.argv[3] || '2', 10);
   fs.mkdirSync(OUT, { recursive: true });
-  const b = await chromium.launch();
-  const ctx = await b.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', userAgent: UA, storageState: STATE });
+  const { b, ctx } = await session();
   const p = await ctx.newPage();
   const items = [];
   for (let i = 1; i <= pages; i++) {

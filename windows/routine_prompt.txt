@@ -6,4 +6,4 @@
 4) 규칙대로 분류해 python ledger.py rget 으로 빈칸 확인 후 rset 기록. 애매한 건 기록하지 말고 보고에 질문으로 남긴다.
 5) 처리 기록(*_done.json) 갱신.
 6) 기록 내역을 짧게 정리해 python tg.py "..." 로 텔레그램 전송. 새 내역이 없으면 '새 내역 없음'.
-네이버 세션이 만료되면(SESSION EXPIRED) 텔레그램으로 "네이버 재로그인 필요: node naver.js loginlocal 실행" 이라고 알린다. OneDrive 토큰이 만료되면 텔레그램으로 "OneDrive 재로그인 필요" 라고 알린다.
+네이버 세션이 만료되면(SESSION EXPIRED) 텔레그램으로 "Aside에서 네이버 재로그인 필요" 라고 알린다. Aside 연결(ASIDE_CDP) 실패면 "Aside를 디버깅 포트로 켜 주세요" 라고 알린다. OneDrive 토큰이 만료되면 텔레그램으로 "OneDrive 재로그인 필요" 라고 알린다.

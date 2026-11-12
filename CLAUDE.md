@@ -1,6 +1,6 @@
 # 가계부 자동 작성 세션 규칙
 
-> **윈도우 PC로 이전 중**: 실행 환경 안내는 `windows/SETUP.md`. 윈도우에서는 `python3` 대신 `python`, 네이버 로그인은 `node naver.js loginlocal`(PC에서 직접 로그인). 아래 '서버 쿠키 가져오기'는 클라우드 전용.
+> **윈도우 PC로 이전 중**: 실행 환경 안내는 `windows/SETUP.md`. 윈도우에서는 `python3` 대신 `python`, **웹브라우징·네이버 로그인은 Aside 브라우저**(`ASIDE_CDP=http://127.0.0.1:9222`로 naver.js가 Aside에 붙음; 대안 `node naver.js loginlocal`). 아래 '서버 쿠키 가져오기'는 클라우드 전용.
 
 가계부: OneDrive xlsx (공유 링크 https://1drv.ms/x/c/c3ff9e4fac7f997f/IQB_mX-sT57_IIDDcQAAAAAAAS_yTM5yFv3Y1XCLE-joULs?e=VhSK0c)
 - 다운로드: `python3 ledger.py download <path>` (호스트 my.microsoftpersonalcontent.com)
