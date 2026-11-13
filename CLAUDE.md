@@ -2,12 +2,20 @@
 
 > **윈도우 PC로 이전 중**: 실행 환경 안내는 `windows/SETUP.md`. 윈도우에서는 `python3` 대신 `python`, **웹브라우징·네이버 로그인은 Aside 브라우저**(`ASIDE_CDP=http://127.0.0.1:9222`로 naver.js가 Aside에 붙음; 대안 `node naver.js loginlocal`). 아래 '서버 쿠키 가져오기'는 클라우드 전용.
 
-가계부: OneDrive xlsx (공유 링크 https://1drv.ms/x/c/c3ff9e4fac7f997f/IQB_mX-sT57_IIDDcQAAAAAAAS_yTM5yFv3Y1XCLE-joULs?e=VhSK0c)
+## 가계부 원본 = GitHub `ledger-web/data/*.json` (2026-11-13부터)
+- 저장소 `..\ledger-web` (DangChame/ledger-web, 공개) → https://dangchame.github.io/ledger-web/ (26-08 이후만 공개).
+- **기록은 엑셀이 아니라 JSON에**: `python ..\ledger-web\tools\book.py get 26-11 Q14:AL14` / `python ..\ledger-web\tools\book.py set 26-11 U14=5000 V14=사유` (엑셀과 같은 칸 주소·같은 규칙, 금액 '?'=미정, `U14=`=지우기). 쓰기 전에 `get`으로 빈칸 확인. I37/I38 같은 메모 칸도 `set`.
+- 새 달: 25일 이후 `python ..\ledger-web\tools\book.py newmonth` (newmonth.py와 같은 규칙: 고정지출·할부 이어받기).
+- 올리기: 새벽 실행 끝에 `run_daily.ps1`이 `ledger-web\tools\publish.ps1`로 자동 커밋·push (Claude가 직접 git 하지 않아도 됨).
+- **엑셀은 2주마다만**: 작업 스케줄러 '가계부 엑셀 반영 (2주)'가 `ledger-web\tools\push_excel.py`로 JSON에서 바뀐 칸만 엑셀에 쓴다(새 달이면 `newmonth_remote.py`로 시트 생성). 평소엔 `rget`/`rset`을 쓰지 않는다. 엑셀이 장애여도 기록은 멈추지 않는다.
+- `tools/import_xlsx.py`(엑셀→JSON)는 JSON을 덮어쓰니 복구할 때만 수동으로.
+
+가계부 엑셀(2주마다 반영되는 사본): OneDrive xlsx (공유 링크 https://1drv.ms/x/c/c3ff9e4fac7f997f/IQB_mX-sT57_IIDDcQAAAAAAAS_yTM5yFv3Y1XCLE-joULs?e=VhSK0c)
 - 다운로드: `python3 ledger.py download <path>` (호스트 my.microsoftpersonalcontent.com)
 - 셀 수정: `python3 ledger.py set <path> 26-11 U14=5000 V14=사유` — 기존 셀 서식 유지, XML 직접 수정 (openpyxl 저장은 '현 재정상태' 시트의 잉크 그림을 날리므로 쓰지 말 것)
 - xlsx 파일은 저장소에 커밋하지 않는다 (개인 금융정보).
 
-## OneDrive 자동 반영 (기본 방식)
+## OneDrive 엑셀 직접 다루기 (2주 반영·복구용)
 - 원본에 직접 기록: `python3 ledger.py rset 26-11 U14=5000 V14=사유` (Graph Excel API, 셀 단위 PATCH → 서식 유지, 수식 자동 재계산)
 - 확인: `python3 ledger.py rget 26-11 Q14:AL14`
 - 쓰기 전에 `rget`으로 대상 칸이 비어 있는지 먼저 확인한다(다른 기기에서 바뀌었을 수 있음).
@@ -64,13 +72,12 @@
 - 백업은 OneDrive `가계부/백업/`.
 
 ## 매일 새벽 자동 실행 (한국시간 05:15)
-0. `~/.config/ledger/pending_writes.json`(엑셀 장애 등으로 못 쓴 기록, [{sheet, cells, expect, source}])이 있으면 먼저 처리: `rget`으로 대상 칸이 비어 있거나 `expect` 값('?' 등)일 때만 `rset`, 다르면 쓰지 말고 보고. 성공한 항목은 파일에서 지운다. 엑셀이 계속 안 되면 그대로 두고 다음 실행에 다시 시도.
 1. `node naver.js history` + `node naver.js points <월초> <월말>` (I37/I38 월 누적 갱신) → naver_done에 없는 `use` 건만 (nfc/pmuse, 취소 쌍 제외) 처리.
 2. `node naver.js kbmail`의 새 메일 처리 + 결제대행사 영수증(`coupang_pg`·`pg_kcp`·`pg_kicc`) 처리 + `node naver.js kbmail '[농협카드 화면]' nhmail`의 새 메일 처리.
-2-1. `node naver.js payhist 2`로 네이버쇼핑 상품명 처리. 25일 이후면 `python3 newmonth_remote.py`.
-3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
+2-1. `node naver.js payhist 2`로 네이버쇼핑 상품명 처리. 25일 이후면 `python ..\ledger-web\tools\book.py newmonth` (다음 달 파일 없을 때).
+3. 분류가 확실하면 규칙대로 `book.py get`으로 빈칸 확인 후 `book.py set`. 애매하면 기록하지 말고 사용자에게 질문.
 4. 무엇을 기록했는지 짧게 보고(텔레그램 `tg.py`로도 전송). 로그인 만료 시 재로그인 요청.
-5. (자동, Claude 아님) `run_daily.ps1`이 끝에 `..\ledger-web\tools\sync.ps1`을 돌려 엑셀 26-08 이후 시트를 `ledger-web/data/*.json`으로 바꾸고, 바뀌었으면 GitHub(DangChame/ledger-web, 공개)에 push → https://dangchame.github.io/ledger-web/
+5. (자동, Claude 아님) `run_daily.ps1`이 끝에 `..\ledger-web\tools\publish.ps1`로 바뀐 data를 GitHub에 push → 사이트 반영.
 
 ## 네이버 로그인 = PC 쿠키 가져오기 (기본 방식)
 - **서버에서 아이디·비밀번호 로그인 금지**: 해외 데이터센터 IP라 보안문자 반복 → 2026-11-12 아이디 보호(잠금)까지 걸렸다. `loginpw`는 쓰지 않는다. 일회용 번호 로그인은 '상태 유지'가 없어 1.5일이면 만료.
