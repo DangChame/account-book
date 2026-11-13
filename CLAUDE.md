@@ -64,6 +64,7 @@
 - 백업은 OneDrive `가계부/백업/`.
 
 ## 매일 새벽 자동 실행 (한국시간 05:15)
+0. `~/.config/ledger/pending_writes.json`(엑셀 장애 등으로 못 쓴 기록, [{sheet, cells, expect, source}])이 있으면 먼저 처리: `rget`으로 대상 칸이 비어 있거나 `expect` 값('?' 등)일 때만 `rset`, 다르면 쓰지 말고 보고. 성공한 항목은 파일에서 지운다. 엑셀이 계속 안 되면 그대로 두고 다음 실행에 다시 시도.
 1. `node naver.js history` + `node naver.js points <월초> <월말>` (I37/I38 월 누적 갱신) → naver_done에 없는 `use` 건만 (nfc/pmuse, 취소 쌍 제외) 처리.
 2. `node naver.js kbmail`의 새 메일 처리 + 결제대행사 영수증(`coupang_pg`·`pg_kcp`·`pg_kicc`) 처리 + `node naver.js kbmail '[농협카드 화면]' nhmail`의 새 메일 처리.
 2-1. `node naver.js payhist 2`로 네이버쇼핑 상품명 처리. 25일 이후면 `python3 newmonth_remote.py`.
