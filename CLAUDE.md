@@ -69,6 +69,7 @@
 2-1. `node naver.js payhist 2`로 네이버쇼핑 상품명 처리. 25일 이후면 `python3 newmonth_remote.py`.
 3. 분류가 확실하면 규칙대로 `rget`으로 빈칸 확인 후 `rset`. 애매하면 기록하지 말고 사용자에게 질문.
 4. 무엇을 기록했는지 짧게 보고(텔레그램 `tg.py`로도 전송). 로그인 만료 시 재로그인 요청.
+5. (자동, Claude 아님) `run_daily.ps1`이 끝에 `..\ledger-web\tools\sync.ps1`을 돌려 엑셀 26-08 이후 시트를 `ledger-web/data/*.json`으로 바꾸고, 바뀌었으면 GitHub(DangChame/ledger-web, 공개)에 push → https://dangchame.github.io/ledger-web/
 
 ## 네이버 로그인 = PC 쿠키 가져오기 (기본 방식)
 - **서버에서 아이디·비밀번호 로그인 금지**: 해외 데이터센터 IP라 보안문자 반복 → 2026-11-12 아이디 보호(잠금)까지 걸렸다. `loginpw`는 쓰지 않는다. 일회용 번호 로그인은 '상태 유지'가 없어 1.5일이면 만료.
