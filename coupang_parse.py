@@ -75,12 +75,24 @@ def parse_pg(body):
     if not (dt and amt):
         return None
     c = card.group(1) if card else ""
+    appr = re.search(r"승인번호 (\d+)", t)
+    # 취소 영수증: "…에서 …취소하신 내역은" / "취소요청일시" — 결제일시·금액은 원 결제와 같다
+    cancel = "취소하신 내역" in t or "취소요청일시" in t
     return {"dt": "{}-{}-{} {}:{}".format(*dt.groups()), "amount": int(amt.group(1).replace(",", "")),
             "card": c, "mom": ("NH" in c or "농협" in c), "item": item.group(1).strip() if item else "",
-            "shop": shop.group(1).strip() if shop else ""}
+            "shop": shop.group(1).strip() if shop else "", "appr": appr.group(1) if appr else "",
+            "cancel": cancel, "partial_text": "부분취소" in t}
 
 
-def receipts(month=None):
+def _pg_key(r):
+    return r["appr"] or (r["dt"], r["amount"])
+
+
+def receipts(month=None, include_cancelled=False):
+    """결제 영수증 목록. 전액 취소(같은 승인번호·같은 금액)면 취소 영수증과 원 결제를 뺀다.
+    부분취소(금액이 다르거나 본문에 '부분취소')면 원 결제를 남기고 'partial'=True를 달아
+    사용자에게 실제 금액을 묻게 한다 (CLAUDE.md 규칙).
+    include_cancelled=True면 취소 영수증·취소된 원 결제도 'cancel'/'cancelled' 표시를 달아 포함."""
     out, seen = [], set()
     mails = [m for f in PG_SRCS if os.path.exists(f) for m in json.load(open(f, encoding="utf-8"))]
     for m in mails:
@@ -91,12 +103,37 @@ def receipts(month=None):
         if r and (not month or r["dt"].replace("-", "").startswith(month)):
             r["mailSN"] = m["mailSN"]
             out.append(r)
+    cancels = {}
+    for r in out:
+        if r["cancel"]:
+            cancels.setdefault(_pg_key(r), []).append(r)
+    for r in out:
+        cs = [] if r["cancel"] else cancels.get(_pg_key(r), [])
+        full = any(c["amount"] == r["amount"] and not c["partial_text"] for c in cs)
+        r["cancelled"] = full
+        r["partial"] = bool(cs) and not full
+        if r["partial"]:
+            r["cancel_amount"] = sum(c["amount"] for c in cs)
+    partial_keys = {_pg_key(r) for r in out if r["partial"]}
+    if not include_cancelled:
+        # 부분취소의 취소 영수증은 원 결제에 cancel_amount로 붙였으니 목록에서는 뺀다
+        out = [r for r in out if not (r["cancel"] or r["cancelled"])]
+    else:
+        for r in out:
+            if r["cancel"]:
+                r["partial"] = _pg_key(r) in partial_keys
     return sorted(out, key=lambda r: r["dt"])
 
 
 def main_pg(month):
-    for r in receipts(month):
-        print(f'{r["dt"]} {r["amount"]:>8} [{"엄마카드" if r["mom"] else "내돈:" + r["card"]}] {r["item"][:50]}')
+    for r in receipts(month, include_cancelled=True):
+        if r["cancel"]:
+            tag = " [부분취소 영수증]" if r["partial"] else " [취소]"
+        elif r["partial"]:
+            tag = f" [부분취소 {r['cancel_amount']:,}원 — 실제 금액 확인 필요]"
+        else:
+            tag = " [취소됨]" if r["cancelled"] else ""
+        print(f'{r["dt"]} {r["amount"]:>8} [{"엄마카드" if r["mom"] else "내돈:" + r["card"]}]{tag} {r["item"][:50]}')
 
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "pg":
