@@ -27,6 +27,7 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 DONE = {"money": "naver_done.json", "kb": "kbmail_done.json", "nh": "nhmail_done.json",
         "pg": "coupang_pg_done.json", "pay": "payhist_done.json"}
 NOW = datetime.datetime.now(KST)
+TEST = "--no-fetch" in sys.argv  # 시험 실행: 가계부에 쓰지 않음
 
 
 # ---------- 공통 ----------
@@ -146,6 +147,30 @@ def ts(sec):
     return datetime.datetime.fromtimestamp(sec, KST).strftime("%Y-%m-%d %H:%M")
 
 
+# 가맹점만 보고 칸이 정해지는 것 (사용자 지시). 카드 문자 본문에 이 글자가 있으면 Claude 없이 기록.
+MERCHANT_RULES = {"나이스인프라": (["D", "F"], "안산터미널 주차비")}  # 2026-11-15: 데이트 칸
+
+
+def place(date, rule, amount, auto):
+    """그 날짜 행의 빈 칸(후보 열 순서대로)에 기록. 빈 칸이 없으면 False → Claude가 처리."""
+    cols, memo = rule
+    sheet, row = date[2:7], int(date[8:10]) + 2
+    d = month_data(date)
+    if not d:
+        return False
+    for c in cols:
+        if not book.find(d, c, row):
+            if TEST:
+                auto.append(f"(시험) 기록 예정: {sheet} {c}{row} {amount:,} {memo}")
+                return True
+            memo_col = book.col_name(book.col_idx(c) + 1)
+            book.cmd_set(sheet, [f"{c}{row}={amount}", f"{memo_col}{row}={memo}"])
+            _months.pop(sheet, None)
+            auto.append(f"기록: {sheet} {c}{row} {amount:,} {memo}")
+            return True
+    return False
+
+
 def kbmail(done, todo, auto):
     for m in jload(os.path.join(OUT, "kbmail.json"), []):
         if m["mailSN"] in done["kb"]:
@@ -157,10 +182,15 @@ def kbmail(done, todo, auto):
             continue
         dt = ts(m["time"])
         if a and "취소" not in body:
-            hit = recorded(dt[:10], int(a.group(1).replace(",", "")), "me")
+            amt = int(a.group(1).replace(",", ""))
+            hit = recorded(dt[:10], amt, "me")
             if hit:
                 mark(done, "kb", m["mailSN"])
                 auto.append(f"이미 있음: 카드 문자 {a.group(1)}원 ({hit})")
+                continue
+            rule = next((r for k, r in MERCHANT_RULES.items() if k in body), None)
+            if rule and place(dt[:10], rule, amt, auto):
+                mark(done, "kb", m["mailSN"])
                 continue
         todo.append({"key": f"kb:{m['mailSN']}", "src": "카드 문자(국민·신한, 내 돈)", "side": "me",
                      "dt": dt, "body": body[:300]})
@@ -354,7 +384,8 @@ def run(do_fetch=True):
     save_done(done)
     jsave("collect_todo.json", {"at": NOW.strftime("%Y-%m-%d %H:%M"), "items": todo, "auto": auto})
     if not todo:
-        tg("가계부 새벽 수집: 새 내역 없음" + ("\n" + "\n".join(f"- {a}" for a in auto if not a.startswith("이미 있음")) if auto else ""))
+        head = "가계부 새벽 수집: " + ("자동 기록함" if any(a.startswith("기록:") for a in auto) else "새 내역 없음")
+        tg(head +("\n" + "\n".join(f"- {a}" for a in auto if not a.startswith("이미 있음")) if auto else ""))
         return 0
     return 10
 
