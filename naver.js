@@ -211,10 +211,13 @@ async function points() {
         headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bd) });
       return r.json();
     }, body);
-    trades.push(...(j.trades || []));
+    const seen = new Set(trades.map(t => t.tradeId));
+    const fresh = (j.trades || []).filter(t => !seen.has(t.tradeId));
+    if (!fresh.length) break;  // 같은 쪽 반복 방지
+    trades.push(...fresh);
     const cur = j.pageableCursor || {};
     if (!cur.next) break;
-    body = { ...body, pageableCursor: { next: cur.next, nextTradeId: cur.nextTradeId } };
+    body = { ...body, pageRequest: { next: cur.next, nextTradeId: cur.nextTradeId } };  // 페이지 자체 요청과 같은 이름
   }
   fs.writeFileSync(path.join(OUT, 'points.json'), JSON.stringify(trades, null, 1), { mode: 0o600 });
   saveState(await ctx.storageState());

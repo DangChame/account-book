@@ -149,6 +149,7 @@ def ts(sec):
 
 # 가맹점만 보고 칸이 정해지는 것 (사용자 지시). 카드 문자 본문에 이 글자가 있으면 Claude 없이 기록.
 MERCHANT_RULES = {"나이스인프라": (["D", "F"], "안산터미널 주차비")}  # 2026-11-15: 데이트 칸
+SKIP_MERCHANTS = ["에스티유니타스"]  # 2026-11-16 사용자: 기록하지 않음
 
 
 def place(date, rule, amount, auto):
@@ -181,6 +182,10 @@ def kbmail(done, todo, auto):
             mark(done, "kb", m["mailSN"])
             continue
         dt = ts(m["time"])
+        if any(k in body for k in SKIP_MERCHANTS):
+            mark(done, "kb", m["mailSN"])
+            auto.append("기록 안 함(규칙): " + next(k for k in SKIP_MERCHANTS if k in body))
+            continue
         if a and "취소" not in body:
             amt = int(a.group(1).replace(",", ""))
             hit = recorded(dt[:10], amt, "me")
@@ -326,8 +331,7 @@ def points(month_first, auto):
         d = book.load(sheet)
     except SystemExit:
         return
-    have = d.get("extra", {})
-    ch = [f"{k}={v}" for k, v in want.items() if have.get(k) != v]
+    ch = [f"{k}={v}" for k, v in want.items() if book.cell_value(d, k[0], int(k[1:])) != v]
     if ch:
         book.cmd_set(sheet, ch)
         _months.pop(sheet, None)
