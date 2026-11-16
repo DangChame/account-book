@@ -303,6 +303,37 @@ async function payhist() {
   await b.close();
 }
 
-({ login, loginpw, loginlocal, history, points, kbmail, payhist })[process.argv[2]]()
+
+async function moneydetail() {
+  // node naver.js moneydetail 202610 -> naver_out/money_detail.json (그 달 머니카드 결제 상세: 적립·수수료 환급)
+  const ym = process.argv[3];
+  const rows = JSON.parse(fs.readFileSync(path.join(OUT, 'money_all.json'), 'utf8'))
+    .filter(r => r.PAYDTTM.startsWith(ym) && (!process.env.ONLY || r.TITLE.includes(process.env.ONLY)) && r.TYPE === 'nfc' && r.LINKURL);
+  const { b, ctx } = await session();
+  const p = await ctx.newPage();
+  const out = [];
+  let apis = [];
+  p.on('response', async res => {
+    const ct = res.headers()['content-type'] || '';
+    if (ct.includes('json')) { try { apis.push({ url: res.url(), body: await res.json() }); } catch {} }
+  });
+  try {
+    for (const r of rows) {
+      apis = [];
+      await p.goto(r.LINKURL, { waitUntil: 'load' });
+      await p.waitForTimeout(2500);
+      if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); break; }
+      try { await p.getByText('혜택 적용 후 금액').first().click({ timeout: 3000 }); await p.waitForTimeout(800); } catch {}
+      out.push({ dt: r.PAYDTTM, title: r.TITLE, amt: -r.PAYAMT, text: await p.innerText('body'), apis });
+      console.log('OK', r.PAYDTTM, r.TITLE);
+    }
+  } finally {
+    fs.writeFileSync(path.join(OUT, 'money_detail.json'), JSON.stringify(out, null, 1), { mode: 0o600 });
+    await p.close();
+    await b.close();
+  }
+}
+
+({ login, moneydetail, loginpw, loginlocal, history, points, kbmail, payhist })[process.argv[2]]()
   .then(() => process.exit(0)) // CDP(Aside) 연결은 열린 채 남아 프로세스가 안 끝나므로 명시 종료
   .catch(e => { console.error(e); process.exit(1); });
