@@ -184,8 +184,27 @@ async function history() {
       try { apis.push({ url: r.url(), body: await r.json() }); } catch {}
     }
   });
+  let listReq = null;
+  p.on('request', r => { if (/paymoneyList/.test(r.url())) listReq = { url: r.url(), method: r.method(), body: r.postData(), headers: r.headers() }; });
   await p.goto(HISTORY, { waitUntil: 'load' });
   await p.waitForTimeout(6000);
+  if (process.env.MONEY_PAGES && listReq) {  // node naver.js history (MONEY_PAGES=4) -> money_all.json
+    console.log('REQ', listReq.method, listReq.body);
+    const all = [];
+    for (let pg = 0; pg < +process.env.MONEY_PAGES; pg++) {
+      const j = await p.evaluate(async ([q, pg]) => {
+        let body = q.body;
+        try { const o = JSON.parse(body); o.page = pg; o.currentPage = pg; body = JSON.stringify(o); }
+        catch { body = (body || '').replace(/(page|currentPage|CURRENTPAGE)=\d+/gi, `$1=${pg}`); }
+        const r = await fetch(q.url, { method: q.method, credentials: 'include', headers: { 'Content-Type': q.headers['content-type'] || 'application/json' }, body: q.method === 'GET' ? undefined : body });
+        return r.json();
+      }, [listReq, pg]);
+      const L = j.response?.list || [];
+      console.log('PAGE', pg, L.length, L[0]?.PAYDTTM, JSON.stringify(j.response?.pagingInfo));
+      all.push(...L);
+    }
+    fs.writeFileSync(path.join(OUT, 'money_all.json'), JSON.stringify(all, null, 1), { mode: 0o600 });
+  }
   console.log('URL', p.url());
   if (/nidlogin/.test(p.url())) { console.log('SESSION EXPIRED'); await b.close(); process.exit(3); }
   fs.writeFileSync(path.join(OUT, 'page.txt'), await p.innerText('body'));
