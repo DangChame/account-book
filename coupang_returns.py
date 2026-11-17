@@ -24,18 +24,23 @@ def due(today):
 
 
 def parse(text):
-    """주문목록 글자 → [{date, status, item, amount}]"""
+    """취소/반품/교환 내역 글자 → [{date(주문일), status, item, amount}] (한 주문에 상품이 여러 개면 합계도 하나 더)"""
     out = []
-    parts = re.split(r"(\d{4})\. (\d{1,2})\. (\d{1,2}) 주문\n", text)
+    parts = re.split(r"(?:취소|반품|교환)접수일 :\d{4}/\d\d/\d\d\|주문일 :(\d{4})/(\d\d)/(\d\d)\|주문번호 :\d+\n", text)
     for i in range(1, len(parts) - 3, 4):
-        date = f"{parts[i]}-{int(parts[i+1]):02d}-{int(parts[i+2]):02d}"
+        date = f"{parts[i]}-{parts[i+1]}-{parts[i+2]}"
         lines = [l.strip() for l in parts[i + 3].split("\n") if l.strip()]
-        status = next((l for l in lines[:4] if l != "주문 상세보기"), "")
+        status = next((s for l in lines for s in STATUS if l.startswith(s)), "")
+        items = []
         for j, l in enumerate(lines):
             m = re.fullmatch(r"([\d,]+) 원", l)
-            if m and j > 0:
-                out.append({"date": date, "status": status, "item": lines[j - 1],
-                            "amount": int(m.group(1).replace(",", ""))})
+            if m:
+                name = next((lines[k] for k in range(j - 1, -1, -1) if not re.fullmatch(r"\d+개", lines[k])), "")
+                items.append({"date": date, "status": status, "item": name, "amount": int(m.group(1).replace(",", ""))})
+        out += items
+        if len(items) > 1:
+            out.append({"date": date, "status": status, "item": items[0]["item"] + " 외 (합계)",
+                        "amount": sum(x["amount"] for x in items), "total": True})
     return out
 
 
@@ -45,7 +50,7 @@ def main():
         return 0
     cutoff = (NOW.date().replace(day=1) - datetime.timedelta(days=1)).replace(day=1)  # 지난달 1일부터
     import subprocess
-    r = subprocess.run(["node", "naver.js", "coupangorders", "3"], cwd=collect.HERE, capture_output=True,
+    r = subprocess.run(["node", "naver.js", "coupangorders"], cwd=collect.HERE, capture_output=True,
                        text=True, encoding="utf-8", errors="replace", timeout=300)
     if "COUPANG DENIED" in r.stdout or "COUPANG LOGIN" in r.stdout:
         why = "쿠팡이 접속을 막음 (다음 확인일에 다시)" if "DENIED" in r.stdout else "쿠팡 로그인 필요"

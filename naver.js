@@ -337,33 +337,18 @@ async function moneydetail() {
 
 async function coupangorders() {
   // node naver.js coupangorders -> naver_out/coupang_orders.json
-  // 쿠팡 '취소/반품/교환/환불내역' 화면을 사람처럼 천천히 연다 (빠르게 여러 쪽 열면 Access Denied). 막히면 다시 시도하지 않고 끝낸다.
-  const pages = +(process.argv[3] || 3);
+  // 쿠팡 취소/반품/교환 내역 한 쪽만 연다 (사용자 지정 주소 2026-11-17). 막히면 다시 시도하지 않는다.
   const { b, ctx } = await session();
   const p = await ctx.newPage();
   const out = [];
   let rc = 0;
   try {
-    await p.goto('https://mc.coupang.com/ssr/desktop/order/list', { waitUntil: 'load' });
-    await p.waitForTimeout(5000);
-    for (let pg = 1; pg <= pages; pg++) {
-      const text = await p.innerText('body');
-      if (/Access Denied/.test(text)) { console.log('COUPANG DENIED'); rc = 6; break; }
-      if (/login\.coupang/.test(p.url())) { console.log('COUPANG LOGIN NEEDED'); rc = 7; break; }
-      if (pg === 1) {
-        const link = p.getByText('취소/반품/교환/환불내역').first();
-        if (await link.count()) { await link.click(); await p.waitForTimeout(6000); }
-        const t2 = await p.innerText('body');
-        if (/Access Denied/.test(t2)) { console.log('COUPANG DENIED'); rc = 6; break; }
-      }
-      out.push({ page: pg, url: p.url(), text: await p.innerText('body') });
-      console.log('PAGE', pg, p.url());
-      const next = p.getByText('다음', { exact: true }).last();
-      if (pg === pages || !(await next.count())) break;
-      await p.waitForTimeout(8000);
-      await next.click();
-      await p.waitForTimeout(6000);
-    }
+    await p.goto('https://mc.coupang.com/ssr/desktop/cancel-return-exchange/list', { waitUntil: 'load' });
+    await p.waitForTimeout(6000);
+    const text = await p.innerText('body');
+    if (/Access Denied/.test(text)) { console.log('COUPANG DENIED'); rc = 6; }
+    else if (/login\.coupang/.test(p.url())) { console.log('COUPANG LOGIN NEEDED'); rc = 7; }
+    else { out.push({ page: 1, url: p.url(), text }); console.log('PAGE', p.url()); }
   } finally {
     fs.writeFileSync(path.join(OUT, 'coupang_orders.json'), JSON.stringify(out, null, 1), { mode: 0o600 });
     await p.close();
