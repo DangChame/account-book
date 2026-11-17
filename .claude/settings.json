@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /d C:\\Users\\music\\Desktop\\account_book\\account-book && set PYTHONIOENCODING=utf-8 && python collect.py questions",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

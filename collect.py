@@ -376,8 +376,8 @@ def run(do_fetch=True):
     asked = jload("collect_asked.json", [])  # 사용자에게 이미 물어본 건은 답이 올 때까지 Claude를 다시 부르지 않는다
     waiting = [t for t in todo if t["key"] in asked]
     todo = [t for t in todo if t["key"] not in asked]
-    if waiting:
-        auto.append(f"답 기다리는 질문 {len(waiting)}건 ({', '.join(t['key'] for t in waiting)})")
+    if waiting:  # 질문은 텔레그램이 아니라 Claude 세션에서 묻는다 (사용자 지시 2026-11-17)
+        print(f"답 기다리는 질문 {len(waiting)}건 ({', '.join(t['key'] for t in waiting)})")
     print(f"자동 처리 {len(auto)}건, Claude 판단 필요 {len(todo)}건")
     for a in auto:
         print(" -", a)
@@ -404,10 +404,21 @@ if __name__ == "__main__":
         save_done(dn)
         asked = [k for k in jload("collect_asked.json", []) if k not in sys.argv[2:]]
         jsave("collect_asked.json", asked)
+        jsave("questions.json", [q for q in jload("questions.json", []) if q["key"] not in sys.argv[2:]])
         print("처리 기록:", " ".join(sys.argv[2:]))
-    elif len(sys.argv) > 1 and sys.argv[1] == "ask":
+    elif len(sys.argv) > 2 and sys.argv[1] == "ask":
+        # python collect.py ask <key> "질문 내용"  → 다음에 사용자가 Claude 세션에 말할 때 묻는다
+        key, q = sys.argv[2], " ".join(sys.argv[3:]) or "(내용 없음)"
         asked = jload("collect_asked.json", [])
-        jsave("collect_asked.json", asked + [k for k in sys.argv[2:] if k not in asked])
-        print("질문으로 남김:", " ".join(sys.argv[2:]))
+        jsave("collect_asked.json", asked + ([key] if key not in asked else []))
+        qs = [x for x in jload("questions.json", []) if x["key"] != key]
+        jsave("questions.json", qs + [{"key": key, "q": q, "at": NOW.strftime("%Y-%m-%d %H:%M")}])
+        print("질문으로 남김:", key)
+    elif len(sys.argv) > 1 and sys.argv[1] == "questions":
+        qs = jload("questions.json", [])
+        if qs:
+            print(f"[가계부 새벽 수집이 남긴 질문 {len(qs)}건 — 사용자에게 물어보고, 답을 받으면 기록 후 python collect.py done <key>]")
+            for x in qs:
+                print(f"- {x['key']} ({x['at']}): {x['q']}")
     else:
         sys.exit(run(do_fetch="--no-fetch" not in sys.argv))

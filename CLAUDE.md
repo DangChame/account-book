@@ -10,7 +10,7 @@
 
 ## 매일 새벽 자동 실행 (05:15, `windows/run_daily.ps1`)
 1. `python collect.py` (Claude 없음): 네이버페이·카드 문자·농협카드 화면·결제대행사 영수증·네이버쇼핑 수집 → 충전·취소 쌍·이미 기록된 건(같은 날짜·금액) 건너뛰기, I37/I38 포인트, 25일 이후 새 달 파일. 새 건이 없으면 텔레그램 보고까지 하고 끝.
-2. 판단이 필요한 새 건이 있으면 `~/.config/ledger/collect_todo.json`에 남기고 Claude(sonnet)가 `windows/routine_prompt.txt`대로 분류·기록 → `python collect.py done <key>` / 물어볼 건 `ask <key>`.
+2. 판단이 필요한 새 건이 있으면 `~/.config/ledger/collect_todo.json`에 남기고 Claude(sonnet)가 `windows/routine_prompt.txt`대로 분류·기록 → `python collect.py done <key>` / 물어볼 건 `ask <key> "질문"`. **질문은 텔레그램으로 보내지 않는다** — `~/.config/ledger/questions.json`에 쌓이고, 사용자가 이 세션에 말할 때 훅(`.claude/settings.json`, `collect.py questions`)이 보여 주면 그때 묻는다 (사용자 지시 2026-11-17).
 3. `publish.ps1`로 GitHub push.
 
 ## 기록 규칙
