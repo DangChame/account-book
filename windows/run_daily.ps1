@@ -18,6 +18,9 @@ if ($rc -eq 10) {
 } elseif ($rc -ne 0 -and $rc -ne 3 -and $rc -ne 4) {
   python tg.py "가계부 새벽 수집 오류 (코드 $rc) - daily.log 확인 필요" 2>&1 | Out-File -Append -Encoding utf8 $log
 }
+# 쿠팡 반품·취소 확인: 매달 둘째 주 일요일·말일에만 (날짜 판단은 스크립트 안에서, Claude 없음)
+"---- 쿠팡 반품 확인 $(Get-Date -Format 'HH:mm:ss')" | Out-File -Append -Encoding utf8 $log
+python coupang_returns.py 2>&1 | Out-File -Append -Encoding utf8 $log
 # 가계부 원본(ledger-web/data/*.json)이 바뀌었으면 GitHub에 올림. 엑셀은 2주마다 따로.
 $pub = Join-Path $web "tools\publish.ps1"
 if (Test-Path $pub) {
