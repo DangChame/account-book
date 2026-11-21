@@ -22,7 +22,15 @@ if ($rc -eq 10) {
   "---- Claude (새 건 분류) $(Get-Date -Format 'HH:mm:ss')" | Out-File -Append -Encoding utf8 $log
   $prompt = Get-Content -Raw -Encoding UTF8 "windows\routine_prompt.txt"
   # 사용자 PC에서 무인 실행 → 이 저장소 작업에 필요한 도구만 허용. 분류는 가벼운 일이라 sonnet.
-  claude -p $prompt --model sonnet --add-dir $web --allowedTools "Bash,Read,Edit,Write,Glob,Grep" 2>&1 | Out-File -Append -Encoding utf8 $log
+  $out = claude -p $prompt --model sonnet --add-dir $web --allowedTools "Bash,Read,Edit,Write,Glob,Grep" 2>&1 | Out-String
+  $out | Out-File -Append -Encoding utf8 $log
+  # Claude가 tg.py를 안 부르는 일이 있어(2026-11-22 확인) 보고는 스크립트가 직접 보낸다
+  $msg = "가계부 새벽 수집 완료`n" + $out.Trim()
+  if ($msg.Length -gt 3500) { $msg = $msg.Substring(0, 3500) + " …" }
+  if ($LASTEXITCODE -ne 0 -or -not $out.Trim()) { $msg = "가계부 새벽 수집: Claude 분류 단계 실패 - daily.log 확인 필요`n" + $out.Trim() }
+  $mf = "$HOME\.config\ledger\tg_msg.txt"
+  [IO.File]::WriteAllText($mf, $msg, [Text.UTF8Encoding]::new($false))
+  python tg.py --file $mf 2>&1 | Out-File -Append -Encoding utf8 $log
 } elseif ($rc -ne 0 -and $rc -ne 3 -and $rc -ne 4) {
   python tg.py "가계부 새벽 수집 오류 (코드 $rc) - daily.log 확인 필요" 2>&1 | Out-File -Append -Encoding utf8 $log
 }

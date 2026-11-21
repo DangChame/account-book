@@ -55,5 +55,7 @@ def send_photo(path, caption=""):
 if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[1] == "--photo":
         send_photo(sys.argv[2], " ".join(sys.argv[3:]))
+    elif len(sys.argv) > 2 and sys.argv[1] == "--file":  # 여러 줄·따옴표가 든 보고 (run_daily.ps1)
+        send(open(sys.argv[2], encoding="utf-8-sig").read().strip())
     else:
         send(" ".join(sys.argv[1:]) or sys.stdin.read())
