@@ -8,7 +8,9 @@ $env:PYTHONUTF8 = "1"; $env:PYTHONIOENCODING = "utf-8"
 if (-not $env:ASIDE_CDP) { $env:ASIDE_CDP = "http://127.0.0.1:9222" }
 "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File -Append -Encoding utf8 $log
 # Aside가 업데이트 등으로 디버깅 포트 없이 다시 켜져 있으면 포트를 붙여 다시 켠다 (2026-11-19: 이것 때문에 수집 실패)
-try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 "$env:ASIDE_CDP/json/version" | Out-Null } catch {
+# 포트는 열려 있는데 응답이 멈춘 경우도 있다 (2026-11-22) → 실제로 붙어 보고 안 되면 다시 켠다
+node cdp_probe.js | Out-Null
+if ($LASTEXITCODE -ne 0) {
   "Aside 디버깅 포트 없음 → 다시 켬" | Out-File -Append -Encoding utf8 $log
   Get-Process aside -ErrorAction SilentlyContinue | ? { $_.Path -like '*Program Files*' } | Stop-Process -Force
   Start-Sleep 3
