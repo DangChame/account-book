@@ -67,7 +67,8 @@ def parse_pg(body):
         item = re.search(r"주문상품명 (.+?) 사이트주소", t)
         shop = re.search(r"구매상점명 (.+?) 주문상품명", t)
     else:  # KICC 이지페이
-        dt = re.search(r"결제일시 (\d{4})/(\d\d)/(\d\d) (\d\d):(\d\d)", t)
+        # 취소 영수증엔 결제일시 대신 취소일시만 있다 (2026-11-22: 이걸 못 읽어 취소를 놓침). 짝은 승인번호로 맞춘다
+        dt = re.search(r"(?:결제|취소)일시 (\d{4})/(\d\d)/(\d\d) (\d\d):(\d\d)", t)
         amt = re.search(r"상품금액 ([\d,]+)원", t)
         card = re.search(r"결제기관 (\S+)", t)
         item = re.search(r"상품명 (.+?) 결제일시", t)
