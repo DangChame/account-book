@@ -25,7 +25,7 @@ OUT = os.path.join(CFG, "naver_out")
 TODO = os.path.join(CFG, "collect_todo.json")
 KST = datetime.timezone(datetime.timedelta(hours=9))
 DONE = {"money": "naver_done.json", "kb": "kbmail_done.json", "nh": "nhmail_done.json",
-        "pg": "coupang_pg_done.json", "pay": "payhist_done.json"}
+        "pg": "coupang_pg_done.json", "pay": "payhist_done.json", "claude": "claude_done.json"}
 NOW = datetime.datetime.now(KST)
 TEST = "--no-fetch" in sys.argv  # 시험 실행: 가계부에 쓰지 않음
 
@@ -137,6 +137,49 @@ def money(done, todo, auto):
         else:
             todo.append({"key": f"money:{r['PAYSEQ']}", "src": "네이버페이 머니카드" if r["TYPE"] == "nfc" else "네이버페이 결제",
                          "side": "me", "dt": dt, "amount": amt, "merchant": r["TITLE"]})
+
+
+CLAUDE_RE = re.compile(r"ANTHROPIC|CLAUDE", re.I)
+
+
+def claudesub(done, todo, auto):
+    """Claude 구독(머니카드): 머니분(머니 내역) + 포인트분(포인트 내역)을 합쳐 내 돈 이외(N)에 '클로드프로'.
+    포인트로만 내면 머니 내역에 안 나온다 (2026-11-23 사용자 지시: 고정지출에서 빼고 결제내역 보고 넣기)."""
+    groups = {}
+    for t in jload(os.path.join(OUT, "points.json"), []):
+        if t.get("tradeType") == "USE" and CLAUDE_RE.search(t.get("title") or ""):
+            gid = (t.get("mobileUrl") or t["tradeId"]).rsplit("/", 1)[-1]
+            dt = datetime.datetime.fromtimestamp(t["tradeDateTime"] / 1000, KST).strftime("%Y-%m-%d %H:%M")
+            g = groups.setdefault(gid, {"dt": dt, "amt": 0, "money": []})
+            g["amt"] += -t["tradeAmount"]
+    api = jload(os.path.join(OUT, "api.json"), [])
+    rows = next((x["body"]["response"]["list"] for x in api if "paymoneyList" in x["url"]), [])
+    for r in rows:
+        if r["FILTER"] == "use" and r["PAYAMT"] < 0 and CLAUDE_RE.search(r["TITLE"]):
+            gid = (r.get("LINKURL") or r["PAYSEQ"]).rsplit("/", 1)[-1]
+            g = groups.setdefault(gid, {"dt": dt14(r["PAYDTTM"]), "amt": 0, "money": []})
+            g["amt"] += -r["PAYAMT"]
+            g["money"].append(r["PAYSEQ"])
+    for gid, g in groups.items():
+        for seq in g["money"]:
+            mark(done, "money", seq)  # money()가 따로 Claude 판단으로 넘기지 않게
+        if gid in done["claude"]:
+            continue
+        day = g["dt"][:10]
+        if recorded(day, g["amt"], "me"):
+            mark(done, "claude", gid)
+            continue
+        d = month_data(day)
+        row = int(day[8:]) + 2
+        if d and not any(e["col"] == "N" and e["row"] == row for e in d["entries"]):
+            book.cmd_set(d["sheet"], [f"N{row}={g['amt']}", f"O{row}=클로드프로"])
+            _months.pop(d["sheet"], None)
+            mark(done, "claude", gid)
+            auto.append(f"기록: {day[5:]} 클로드프로 {g['amt']:,} → {d['sheet']} N{row} (머니카드, 포인트 포함)")
+        else:
+            todo.append({"key": f"claude:{gid}", "src": "머니카드 Claude 구독(머니+포인트 합계)", "side": "me",
+                         "dt": g["dt"], "amount": g["amt"], "merchant": "ANTHROPIC CLAUDE",
+                         "note": "내 돈 이외(N) '클로드프로'. 그 날 N칸이 차 있어서 규칙대로 가까운 빈칸에"})
 
 
 def dt14(s):
@@ -367,6 +410,7 @@ def run(do_fetch=True):
             points((first - datetime.timedelta(days=1)).replace(day=1), auto)
     if do_fetch:
         newmonth(auto)
+    claudesub(done, todo, auto)
     money(done, todo, auto)
     kbmail(done, todo, auto)
     nhmail(done, todo, auto)
