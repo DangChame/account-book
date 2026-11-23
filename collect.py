@@ -143,7 +143,7 @@ CLAUDE_RE = re.compile(r"ANTHROPIC|CLAUDE", re.I)
 
 
 def claudesub(done, todo, auto):
-    """Claude 구독(머니카드): 머니분(머니 내역) + 포인트분(포인트 내역)을 합쳐 내 돈 이외(N)에 '클로드프로'.
+    """Claude 구독(머니카드): 머니분(머니 내역) + 포인트분(포인트 내역)을 합쳐 내 돈 먼슬리페이(L, 고정 표시 없이)에 '클로드프로'.
     포인트로만 내면 머니 내역에 안 나온다 (2026-11-23 사용자 지시: 고정지출에서 빼고 결제내역 보고 넣기)."""
     groups = {}
     for t in jload(os.path.join(OUT, "points.json"), []):
@@ -171,15 +171,15 @@ def claudesub(done, todo, auto):
             continue
         d = month_data(day)
         row = int(day[8:]) + 2
-        if d and not any(e["col"] == "N" and e["row"] == row for e in d["entries"]):
-            book.cmd_set(d["sheet"], [f"N{row}={g['amt']}", f"O{row}=클로드프로"])
+        if d and not any(e["col"] == "L" and e["row"] == row for e in d["entries"]):
+            book.cmd_set(d["sheet"], [f"L{row}={g['amt']}", f"M{row}=클로드프로"])
             _months.pop(d["sheet"], None)
             mark(done, "claude", gid)
-            auto.append(f"기록: {day[5:]} 클로드프로 {g['amt']:,} → {d['sheet']} N{row} (머니카드, 포인트 포함)")
+            auto.append(f"기록: {day[5:]} 클로드프로 {g['amt']:,} → {d['sheet']} L{row} (머니카드, 포인트 포함)")
         else:
             todo.append({"key": f"claude:{gid}", "src": "머니카드 Claude 구독(머니+포인트 합계)", "side": "me",
                          "dt": g["dt"], "amount": g["amt"], "merchant": "ANTHROPIC CLAUDE",
-                         "note": "내 돈 이외(N) '클로드프로'. 그 날 N칸이 차 있어서 규칙대로 가까운 빈칸에"})
+                         "note": "내 돈 먼슬리페이(L) '클로드프로'. 그 날 L칸이 차 있어서 규칙대로 가까운 빈칸에"})
 
 
 def dt14(s):
